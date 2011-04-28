@@ -83,10 +83,8 @@ int main(int argc, char * argv[]){
 	parser.parse(input);
 	t2=clock();
 	clog<<"Parse time="<<1.0*(t2-t1)/CLOCKS_PER_SEC<<endl;
-	//if( cktlist.size()>0 ) cktlist[0]->check_sys();
 	
 	// do the job
-	//clog<<"number of layers: "<<Circuit::get_total_num_layer()<<endl;
 	if( mode == 0 ) clog<<"Solve using block-iterative."<<endl;
 	else clog<<"Solve using direct LU."<<endl;
 	for(size_t i=0;i<cktlist.size();i++){
@@ -104,7 +102,6 @@ int main(int argc, char * argv[]){
 		// after that, this circuit can be released
 		delete ckt;
 	}
-	//fclose(stdout);
 	// output a single ground node
 	printf("G  %.5e\n", 0.0);
 

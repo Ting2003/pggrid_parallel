@@ -1,5 +1,4 @@
 CC=g++
-#CPLUSPLUS=g++
 SRC= util.cpp point.cpp node.cpp circuit.cpp net.cpp parser.cpp vec.cpp \
     main.cpp triplet.cpp algebra.cpp block.cpp 
 #hash_mat.cpp map_mat.cpp 
@@ -9,8 +8,6 @@ BIN=pg
 RELEASE=IPGS
 CPPFLAGS=
 CFLAGS=-Wall -Wextra -pipe -O2 -msse4.2 -mssse3 -mfpmath=sse -march=native
-#CFLAGS=-Wall -g #-Wextra -pipe -O2 -msse4.2 -mssse3 -mfpmath=sse -march=core2
-#LDFLAGS=-s -Wl,-O1,-hash-style=gnu
 LDFLAGS=
 CSCOPEFILES=cscope.files cscope.out cscope.po.out
 CSCOPE=/usr/local/bin/cscope
@@ -63,7 +60,6 @@ tags: $(SRC) $(HDR) main.cpp
 		-o -name "*.cpp" > cscope.files
 	@cscope -bkq -i cscope.files
 	@ctags -L cscope.files --sort=yes --c++-kinds=+p --fields=+iaS --extra=+q
-
 
 .PHONY : clean
 clean:
