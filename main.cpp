@@ -87,20 +87,30 @@ int main(int argc, char * argv[]){
 	// do the job
 	if( mode == 0 ) clog<<"Solve using block-iterative."<<endl;
 	else clog<<"Solve using direct LU."<<endl;
+
 	for(size_t i=0;i<cktlist.size();i++){
 		Circuit * ckt = cktlist[i];
-		clog<<"Solving "<<ckt->get_name()<<endl;
-		ckt->solve();
-		// DEBUG: output each circuit to separate file
-		//char ofname[MAX_BUF];
-		//sprintf(ofname,"%s.%s",filename,ckt->get_name().c_str());
-		//freopen(ofname,"w", stdout);
-		//cktlist[i]->print();
-		//clog<<(*ckt)<<endl;
-		clog<<endl;
 
+		// declare the device variable
+		// copy circuit data from host to device
+		//Circuit * ckt_device;
+		//cudaMalloc((void**)& ckt_device, 
+					//sizeof(Circuit));
+		//int size = sizeof(Circuit);
+		//cudaMemcpy(ckt_device, ckt, size, 
+				//cudaMemcpyHostToDevice);
+		clog<<"Solving "<<ckt->get_name()<<endl;
+		// start solving, the configuration will be 
+		// assigned after computing number of blocks
+		ckt->solve();	
+		// after solving, copy data back to host
+		//cudaMemcpy(ckt, ckt_device, size, 
+				//cudaMemcpyDeviceToHost);
+		// print results
+		ckt->print();
 		// after that, this circuit can be released
 		delete ckt;
+		//cudaFree(ckt_device);
 	}
 	// output a single ground node
 	printf("G  %.5e\n", 0.0);

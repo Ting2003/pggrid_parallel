@@ -253,13 +253,17 @@ void Circuit::partition_circuit(){
 // 3. Compute block size
 // 4. Insert boundary netlist into map
 void Circuit::block_init(){
+	clock_t t1, t2;
 	block_info.set_len_per_block(x_min, x_max, y_min, y_max, OVERLAP_RATIO);
 	block_info.update_block_geometry();
 	find_block_size();
 	copy_node_voltages_block();
 
 	//stamp_boundary_matrix();
+	t1 = clock();
 	stamp_block_matrix();
+	t2 = clock();
+	clog<<"stamp block matrix cost: "<<1.0*(t2-t1)/CLOCKS_PER_SEC<<endl;
 }
 
 void Circuit::block_boundary_insert_net(Net * net){
@@ -373,10 +377,14 @@ void Circuit::solve(){
 
 // solve Circuit
 bool Circuit::solve_IT(){
+	clock_t t1, t2;
 	// did not find any `X' node
 	if( circuit_type == UNKNOWN )
 		circuit_type = C4;
+	t1 = clock();
 	solve_init();
+	t2 = clock();
+	clog<<"solve_init time: "<<1.0 *(t2-t1) / CLOCKS_PER_SEC<<endl;
 
 	/*if( replist.size() <= 2*MAX_BLOCK_NODES ){
 		clog<<"Replist is small, use direct LU instead."<<endl;
@@ -400,7 +408,11 @@ bool Circuit::solve_IT(){
 	cholmod_start(cm);
 	cm->print = 5;
 	cholmod_print_common("first_cm",cm);
+	t1 = clock();
 	block_init();
+	t2 = clock();
+	clog<<"block_init time: "<<1.0 *(t2 - t1)/CLOCKS_PER_SEC
+		<<endl;
 	cholmod_print_common("stamp_cm",cm);
 
 	clog<<"e="<<EPSILON
@@ -412,7 +424,12 @@ bool Circuit::solve_IT(){
 	int iter = 0;	
 	double diff=0;
 	bool successful = false;
+	
+	// configure the gpu parameters
+	//dim3 dimGrid(block_info.X_BLOCKS, 
+			//block_info.Y_BLOCKS);
 
+	t1 = clock();
 	while( iter++ < MAX_ITERATION ){
 		diff = solve_iteration();
 
@@ -422,6 +439,8 @@ bool Circuit::solve_IT(){
 			break;
 		}
 	}
+	t2 = clock();
+	clog<<"iteration time: "<<1.0 *(t2-t1) / CLOCKS_PER_SEC<<endl;
 	clog<<"# iter: "<<iter<<endl;
 	get_voltages_from_block_LU_sol();
 	get_vol_mergelist();
