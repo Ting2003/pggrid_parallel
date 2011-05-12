@@ -83,35 +83,28 @@ int main(int argc, char * argv[]){
 	parser.parse(input);
 	t2=clock();
 	clog<<"Parse time="<<1.0*(t2-t1)/CLOCKS_PER_SEC<<endl;
+	//if( cktlist.size()>0 ) cktlist[0]->check_sys();
 	
 	// do the job
+	//clog<<"number of layers: "<<Circuit::get_total_num_layer()<<endl;
 	if( mode == 0 ) clog<<"Solve using block-iterative."<<endl;
 	else clog<<"Solve using direct LU."<<endl;
-
 	for(size_t i=0;i<cktlist.size();i++){
 		Circuit * ckt = cktlist[i];
-
-		// declare the device variable
-		// copy circuit data from host to device
-		//Circuit * ckt_device;
-		//cudaMalloc((void**)& ckt_device, 
-					//sizeof(Circuit));
-		//int size = sizeof(Circuit);
-		//cudaMemcpy(ckt_device, ckt, size, 
-				//cudaMemcpyHostToDevice);
 		clog<<"Solving "<<ckt->get_name()<<endl;
-		// start solving, the configuration will be 
-		// assigned after computing number of blocks
-		ckt->solve();	
-		// after solving, copy data back to host
-		//cudaMemcpy(ckt, ckt_device, size, 
-				//cudaMemcpyDeviceToHost);
-		// print results
-		ckt->print();
+		ckt->solve();
+		// DEBUG: output each circuit to separate file
+		//char ofname[MAX_BUF];
+		//sprintf(ofname,"%s.%s",filename,ckt->get_name().c_str());
+		//freopen(ofname,"w", stdout);
+		//cktlist[i]->print();
+		//clog<<(*ckt)<<endl;
+		clog<<endl;
+
 		// after that, this circuit can be released
 		delete ckt;
-		//cudaFree(ckt_device);
 	}
+	//fclose(stdout);
 	// output a single ground node
 	printf("G  %.5e\n", 0.0);
 
