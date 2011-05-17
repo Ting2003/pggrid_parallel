@@ -48,7 +48,7 @@ public:
 
 	friend class Algebra;
 //	friend class Circuit;
-private:
+//private:
 	vector<size_t> Ti;
 	vector<size_t> Tj;
 	vector<double> Tx;

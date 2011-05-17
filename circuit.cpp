@@ -332,11 +332,13 @@ void Circuit::stamp_block_matrix(){
 	// after stamping, convert A to column compressed form
 	for(size_t i=0;i<num_blocks;i++){
 		if(block_info[i].count>0){
-			A[i].set_row(block_info[i].count);		
+			A[i].set_row(block_info[i].count);
+			//clog<<"block.size: "<<A[i].get_row()<<endl;
 			//A[i].merge();
 			block_info[i].CK_decomp(A[i], cm, peak_mem, CK_mem);
 		}
 	}
+	
 	clog<<"peak memory for cholmod: "<<peak_mem / 1e9<<" e+06"<<endl;
 	clog<<"CK_mem is: "<<CK_mem / 1e6 <<" G"<<endl;
 }
@@ -378,12 +380,12 @@ bool Circuit::solve_IT(){
 		circuit_type = C4;
 	solve_init();
 
-	/*if( replist.size() <= 2*MAX_BLOCK_NODES ){
+	if( replist.size() <= 2*MAX_BLOCK_NODES ){
 		clog<<"Replist is small, use direct LU instead."<<endl;
 		solve_LU_core();
 		return true;
 	}
-	*/
+	
 	select_omega();
 	partition_circuit();
 
@@ -509,11 +511,39 @@ void Circuit::solve_LU_core(){
 	Matrix A;
 	stamp_by_set(A, bp);
 	make_A_symmetric(A, bp);
-	//A.merge();
-
 	A.set_row(replist.size());
+
+	//fprint matrix A into file matrix.dat
+	FILE *fp;
+	fp = fopen("matrix.mtx","w");
+	fprintf(fp, "%%MatrixMarket matrix coordinate real general\n");	
+	fprintf(fp, "%d %d %d\n", A.get_row(), A.get_row(), A.size());
+	for(size_t i=0; i<A.size();i++)
+		fprintf(fp, "%d %d %f\n", A.Ti[i]+1, A.Tj[i]+1, A.Tx[i]);
+	fclose(fp);
+	
+	fp = fopen("rhs.mtx", "w");
+	fprintf(fp, "%%MatrixMarket matrix coordinate real general\n");	
+	fprintf(fp, "%d %d %d\n", A.get_row(), 1, A.get_row());
+	for(size_t i=0;i<A.get_row();i++)
+		fprintf(fp, "%d %d %f\n", i+1, 1, bp[i]);
+	fclose(fp);
+	
+	clock_t t1, t2;
+	t1= clock();	
 	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem);
+	t2 = clock();
+	clog<<"solving time is: "<<1.0 *(t2 - t1) / CLOCKS_PER_SEC<<endl;
 	xp = static_cast<double *> (x->x);
+	
+	/*fp = fopen("X.mtx", "w");
+	fprintf(fp, "%%MatrixMarket matrix coordinate real general\n");	
+	fprintf(fp, "%d %d %d\n", A.get_row(), A.get_row(), A.size());
+	fprintf(fp, "%d %d %d\n", A.get_row(), 1, A.get_row());
+	for(size_t i=0;i<A.get_row();i++)
+		fprintf(fp, "%f\n", xp[i]);
+	fclose(fp);
+	*/
 	// Vec b contains result, copy it back to nodelist
 	get_voltages_from_LU_sol(xp);
 	get_vol_mergelist();
