@@ -9,29 +9,28 @@
 #include <fstream>
 using namespace std;
 
+const unsigned int WARPSIZE = 32;
 texture <float, 1, cudaReadModeElementType> L_tex;
 cudaChannelFormatDesc channelDesc = 
 		cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
 	
 void substitute_CK_host(cholmod_factor *L, cholmod_dense *b, cholmod_dense *&x){
 	cudaArray *L_d = NULL;
-	// copy data from L to host L_d
+	double *b_x_d = NULL;
+	// copy data from L to cudaArray L_d
 	// bind L_d into texture memory
-	substitute_setup(L, L_d, b, x);
+	substitute_setup(L, L_d, b, x, b_x_d);
 	
-	/*// malloc and copy data from host to device
-	Matrix A_d[block_info.size()];
-	decomp_setup(A, A_d, block_info);
-	//configuration part goes here
-	size_t x = block_info.X_BLOCKS;
-	size_t y = block_info.Y_BLOCKS;
-	dim3 dimGrid(x, y);
-	dim3 dimBlock(WARPSIZE,1,1);
-	ck_decomp_kernel<<<dimGrid, dimBlock>>>();
-	decomp_copy_back(block_info);
-	// copy data back to host
-	//decomp_free();
-	*/
+	dim3 dimGrid(1, 1);
+	dim3 dimBlock(WARPSIZE, 1, 1);
+	// perform for- and back-ward substitution for each block
+	// solution will be written from shared memory into global memory
+	substitute_CK_kernel<<<dimGrid, dimBlock>>>(L_d, b_x_d);
+
+	// copy solution back from GPU into CPU
+	// where CPU will perform the find_diff and updaterhs()
+	substitute_copy_back(x, b_x_d, b->nzmax);
+	substitute_CK_free(L_d, b_x_d);
 }
 
 // copy data from host to device side
@@ -66,11 +65,20 @@ void substitute_setup(cholmod_factor *L, cudaArray *L_d, cholmod_dense *b, cholm
 	cudaBindTextureToArray(L_tex, L_d, channelDesc);	
 	
 	// malloc b and x into a 1d array, copy from host to device
-	double *b_x_d = NULL;
 	count = sizeof(double)* 2 * b->nzmax;
 	cudaMalloc((void**)&b_x_d, count);
 	index = 0;
 	cudaMemcpy(&b_x_d[0], b->x, b->nzmax, cudaMemcpyHostToDevice);
 	index += b->nzmax;
 	cudaMemcpy(&b_x_d[index], x->x, x->nzmax, cudaMemcpyHostToDevice);
+}
+
+void substitute_copy_back(cholmod_dense *x_h, double *b_x_d, size_t index){
+	size_t count = index; // both are nzmax
+	cudaMemcpy(&x_h->x[0], b_x_d, count, cudaMemcpyDeviceToHost);
+}
+
+void substitute_CK_free(cudaArray *L_d, double *b_x_d){
+	cudaFree(b_x_d);
+	cudaFree(L_d);
 }
