@@ -103,6 +103,13 @@ void Algebra::solve(const Matrix & A, const Vec & b, Vec & x){
 void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_common *cm, size_t &peak_mem, size_t &CK_mem){
 	cholmod_factor *L;
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
+	// using parallel substitute process
+	size_t *nz_p, *p_p, *i_p;
+	double *x_p;
+	nz_p = static_cast<size_t*>(L->nz);
+	p_p = static_cast<size_t*>(L->p);
+	i_p = static_cast<size_t*>(L->i);
+	x_p = static_cast<double*>(L->x);
 	// then solve
 	x = cholmod_solve(CHOLMOD_A, L, b, cm);
 	cholmod_free_factor(&L, cm);
