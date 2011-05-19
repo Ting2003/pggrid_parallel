@@ -8,9 +8,11 @@
 //   * algebra::solve
 
 #include "cholmod.h"
+#include <algorithm>
 #include <cassert>
 #include <ctype.h>
 #include "global.h"
+#include "trip_L.h"
 #include "util.h"
 #include "vec.h"
 #include "umfpack.h"
@@ -99,19 +101,67 @@ void Algebra::solve(const Matrix & A, const Vec & b, Vec & x){
 	//return x;
 }
 
+// order: col > row > val
+bool Algebra::compare_row_first(const trip_L &a, const trip_L &b){
+	if(a.row == b.row){
+		return (a.col < b.col);
+	}
+	return (a.row < b.row);
+}
+
+// transform factor matrix from column to triplet
+// output is column-wise triplet expression of L
+void Algebra::factor_to_triplet(cholmod_factor *L, vector<trip_L> &L_trip){
+	int *L_nz, *L_p, *L_i;
+	double *L_x;
+	L_nz = static_cast<int *> (L->nz);
+	L_p = static_cast<int *> (L->p);
+	L_i = static_cast<int *> (L->i);
+	L_x = static_cast<double *> (L->x);
+	size_t n = L->n;
+	trip_L temp;
+	for(size_t i=0; i< n; i++){
+		for(int j=0; j< L_nz[i]; j++){
+			temp.row = L_i[j];
+			temp.col = i;
+			temp.val = L_x[j];
+			L_trip.push_back(temp);	
+		}
+	}
+	//sort(L_trip.begin(), L_trip.end(), compare_row_first);	
+}
+
+void Algebra::trip_to_array(vector<trip_L>&L_trip, trip_L *L_h, size_t &L_h_nz){
+	L_h = new trip_L[L_trip.size()];
+	for(size_t i=0; i<L_trip.size();i++)
+		L_h[i] = L_trip[i];
+	// L_h_nz is the length of L_h
+	L_h_nz = L_trip.size();
+	L_trip.clear();
+}
+
 // deliver the address of x
 void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_common *cm, size_t &peak_mem, size_t &CK_mem){
 	cholmod_factor *L;
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
-	// using parallel substitute process
+	/*// using parallel substitute process
 	size_t *nz_p, *p_p, *i_p;
 	double *x_p;
 	nz_p = static_cast<size_t*>(L->nz);
 	p_p = static_cast<size_t*>(L->p);
 	i_p = static_cast<size_t*>(L->i);
-	x_p = static_cast<double*>(L->x);
+	x_p = static_cast<double*>(L->x);*/
 	// then solve
 	x = cholmod_solve(CHOLMOD_A, L, b, cm);
+	vector<trip_L> L_trip;
+	// L_h is the memory used for host memory, in array format
+	trip_L * L_h;
+	// record the length of L_h
+	size_t L_h_nz = 0;
+	factor_to_triplet(L, L_trip);
+	trip_to_array(L_trip, L_h, L_h_nz);
+	
+	//cholmod_print_factor( L, "L",cm);
 	cholmod_free_factor(&L, cm);
 	
 }
@@ -179,6 +229,10 @@ void Algebra::CK_decomp(Matrix &A, cholmod_factor *&L, cholmod_common *cm, size_
 	// free the triplet pointer
 	cholmod_free_triplet(&T, cm);
 
+	cm->supernodal = -1;// always do simplictical LL'	
+	//cm->final_super = false;
+	//cm->final_ll = true;
+	//cholmod_print_common("common", cm);
 	L = cholmod_analyze(A_cholmod, cm);
 	cholmod_factorize(A_cholmod, L, cm);
 	if(peak_mem < cm->memory_usage)
