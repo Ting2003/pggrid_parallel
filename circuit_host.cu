@@ -14,7 +14,83 @@ using namespace std;
 texture <float, 1, cudaReadModeElementType> L_tex;
 cudaChannelFormatDesc channelDesc = 
 		cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
+
+// kernel function, doing forward and backward substitution
+// data stored in L_d: nz, col, row, and x
+// data stored in b_x_d: b and x 
+__global__ void substitute_CK_kernel(float *L_d, size_t L_h_nz, double *b_x_d, size_t n){
+	int tid = threadIdx.x;
+	// load data into shared memory
+	extern __shared__ double b_x_s[];
+	// two pointers to b and x
+	double * b_s = b_x_s;
+	double * x_s = &b_x_s[n];
+
+	int i, j;
+	int iter = n << 1 / blockIdx.x + !(n << 1 % blockIdx.x);
+	for(i=0; i< iter; i++){
+		int base = i * blockIdx.x;
+		if((base+tid) < 2 * n)
+			b_x_s[base+tid] = b_x_d[base+tid];
+	}
+	__syncthreads();
 	
+	i = 0; j = 0;
+	int index_col = 0, index_row = 0;
+	size_t row_p;
+	// tid < WARPSIZE will do substitution
+	// then all threads will copy the solution 
+	// from shared memory into global memory
+	if(tid < WARPSIZE){
+		// doing forward substitution
+		while(i < L_h_nz){
+			row_p = tex1Dfetch(L_tex, i);
+		
+			// xj = bj / Ajj
+			index_row = tex1Dfetch(L_tex, i);
+			x_s[index_row] = b_s[index_row] / tex1Dfetch(L_tex, i+2);
+			
+			j = i+3;
+			if(j >= L_h_nz) break;
+			while(tex1Dfetch(L_tex, j) != tex1Dfetch(L_tex, j+1)){
+				// bi = bi - Aij * xj
+				index_row = tex1Dfetch(L_tex, j+1);
+				index_col = tex1Dfetch(L_tex, j);
+				b_s[index_row] -= tex1Dfetch(L_tex, j+2) * x_s[index_col];
+				j += 3;
+			}
+			i = j;
+		}
+		
+		// doing backward substitution
+		i = L_h_nz - 3;
+		while(i >= 0){
+			row_p = tex1Dfetch(L_tex, i);
+				
+			// xi = bi / Aij
+			x_s[row_p] = b_s[row_p] / tex1Dfetch(L_tex, i+2);
+
+			j = i-3;
+			if(j<0) break;
+			
+			while(tex1Dfetch(L_tex, j) != tex1Dfetch(L_tex, j+1)){
+				// bi = bi - Aij * xj
+				index_row = tex1Dfetch(L_tex, j+1);
+				index_col = tex1Dfetch(L_tex, j);
+				b_s[index_col] -= tex1Dfetch(L_tex, j+2) * x_s[index_row];
+				j -= 3;
+			}
+			i = j;
+		}
+	}
+
+	// after computing, copy back into global memory
+	for(i=0; i< iter; i++){
+		int base = i * blockIdx.x;
+		if((base+tid) < 2 * n)
+			b_x_d[base+tid] = b_x_s[base+tid];
+	}
+}
 void substitute_CK_host(trip_L *L_h, size_t L_h_nz, cholmod_dense *b, cholmod_dense *&x){
 	float *L_d = NULL;
 	double *b_x_d = NULL;
@@ -68,10 +144,11 @@ void substitute_setup(trip_L *L_h, size_t L_h_nz, float *L_d, cholmod_dense *b, 
 
 void substitute_copy_back(cholmod_dense *x_h, double *b_x_d, size_t index){
 	size_t count = index; // both are nzmax
-	cudaMemcpy(&x_h->x, b_x_d, count, cudaMemcpyDeviceToHost);
+	cudaMemcpy(&x_h->x, &b_x_d[count], count, cudaMemcpyDeviceToHost);
 }
 
 void substitute_CK_free(float *L_d, double *b_x_d){
+	cudaUnbindTexture(L_tex);
 	cudaFree(b_x_d);
 	cudaFree(L_d);
 }

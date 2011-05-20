@@ -119,16 +119,22 @@ void Algebra::factor_to_triplet(cholmod_factor *L, vector<trip_L> &L_trip){
 	L_i = static_cast<int *> (L->i);
 	L_x = static_cast<double *> (L->x);
 	size_t n = L->n;
+	size_t base = 0;
 	trip_L temp;
 	for(size_t i=0; i< n; i++){
 		for(int j=0; j< L_nz[i]; j++){
-			temp.row = L_i[j];
+			temp.row = L_i[base+j];
 			temp.col = i;
-			temp.val = L_x[j];
+			temp.val = L_x[base+j];
 			L_trip.push_back(temp);	
 		}
+		base += L_nz[i];
 	}
-	//sort(L_trip.begin(), L_trip.end(), compare_row_first);	
+	for(size_t i=0;i<L_trip.size();i++)
+		clog<<"L_trip in column: "<<L_trip[i].row<<
+		" "<<L_trip[i].col<<" "<<L_trip[i].val<<endl;
+	//sort(L_trip.begin(), L_trip.end(), compare_row_first);
+	//free(L_nz); free (L_p); free(L_i); free (L_x);
 }
 
 void Algebra::trip_to_array(vector<trip_L>&L_trip, trip_L *L_h, size_t &L_h_nz){
@@ -143,25 +149,20 @@ void Algebra::trip_to_array(vector<trip_L>&L_trip, trip_L *L_h, size_t &L_h_nz){
 // deliver the address of x
 void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_common *cm, size_t &peak_mem, size_t &CK_mem){
 	cholmod_factor *L;
+	cm->final_ll = true; //stay in LL' format
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
-	/*// using parallel substitute process
-	size_t *nz_p, *p_p, *i_p;
-	double *x_p;
-	nz_p = static_cast<size_t*>(L->nz);
-	p_p = static_cast<size_t*>(L->p);
-	i_p = static_cast<size_t*>(L->i);
-	x_p = static_cast<double*>(L->x);*/
 	// then solve
 	x = cholmod_solve(CHOLMOD_A, L, b, cm);
 	vector<trip_L> L_trip;
 	// L_h is the memory used for host memory, in array format
-	trip_L * L_h;
+	trip_L * L_h = NULL;
 	// record the length of L_h
 	size_t L_h_nz = 0;
 	factor_to_triplet(L, L_trip);
-	trip_to_array(L_trip, L_h, L_h_nz);
 	
-	//cholmod_print_factor( L, "L",cm);
+	trip_to_array(L_trip, L_h, L_h_nz);
+	substitute_CK_host(L_h, L_h_nz, b, x);	
+	cholmod_print_factor( L, "L",cm);
 	cholmod_free_factor(&L, cm);
 	
 }

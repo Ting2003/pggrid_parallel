@@ -512,22 +512,9 @@ void Circuit::solve_LU_core(){
 	stamp_by_set(A, bp);
 	make_A_symmetric(A, bp);
 	A.set_row(replist.size());
-
-	//fprint matrix A into file matrix.dat
-	FILE *fp;
-	fp = fopen("matrix.mtx","w");
-	fprintf(fp, "%%MatrixMarket matrix coordinate real general\n");	
-	fprintf(fp, "%d %d %d\n", A.get_row(), A.get_row(), A.size());
-	for(size_t i=0; i<A.size();i++)
-		fprintf(fp, "%d %d %f\n", A.Ti[i]+1, A.Tj[i]+1, A.Tx[i]);
-	fclose(fp);
-	
-	fp = fopen("rhs.mtx", "w");
-	fprintf(fp, "%%MatrixMarket matrix coordinate real general\n");	
-	fprintf(fp, "%d %d %d\n", A.get_row(), 1, A.get_row());
-	for(size_t i=0;i<A.get_row();i++)
-		fprintf(fp, "%d %d %f\n", i+1, 1, bp[i]);
-	fclose(fp);
+	clog<<"Matrix A is: "<<A<<endl;	
+	for(size_t i=0;i<replist.size();i++)
+		clog<<"i, b: "<<i<<" "<<bp[i]<<endl;
 	
 	clock_t t1, t2;
 	t1= clock();	
@@ -535,7 +522,8 @@ void Circuit::solve_LU_core(){
 	t2 = clock();
 	clog<<"solving time is: "<<1.0 *(t2 - t1) / CLOCKS_PER_SEC<<endl;
 	xp = static_cast<double *> (x->x);
-	
+	for(size_t i=0;i<replist.size();i++)
+		clog<<"i, x: "<<i<<" "<<xp[i]<<endl;
 	/*fp = fopen("X.mtx", "w");
 	fprintf(fp, "%%MatrixMarket matrix coordinate real general\n");	
 	fprintf(fp, "%d %d %d\n", A.get_row(), A.get_row(), A.size());

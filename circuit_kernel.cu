@@ -1,5 +1,6 @@
 #include "circuit_kernel.h"
 #include "global.h"
+
 // kernel function, doing forward and backward substitution
 // data stored in L_d: nz, col, row, and x
 // data stored in b_x_d: b and x 
