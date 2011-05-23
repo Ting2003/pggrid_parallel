@@ -8,7 +8,7 @@
 # ##############################################################
 #
 BIN               := pg 
-CXXFLAGS          :=-Wall -Wextra -pipe -O2 -msse4.2 -msse3 -mfpmath=sse -march=native
+CXXFLAGS          :=-Wall -Wextra -pipe -O2 -msse4.2 -msse3 -mfpmath=sse -march=native -gstabs
 #-O3 -g
 CXX 		  :=g++
 
@@ -24,7 +24,7 @@ LIBS = -L/usr/local/libcuda -lcuda -L$(CUDA_INSTALL_PATH)/lib64 -lcudart -lcubla
 
 CUDA_SDK?=3
 COMMONFLAGS = -DCUDA_SDK=$(CUDA_SDK)
-NVCCFLAGS := --ptxas-options=-v -O3 -G -g 
+NVCCFLAGS := -G -g #--ptxas-options=-v -O3 -G -g 
 
 
 # files
@@ -32,7 +32,7 @@ CPP_SOURCES       := util.cpp point.cpp node.cpp net.cpp parser.cpp\
 		     vec.cpp main.cpp triplet.cpp algebra.cpp \
 		     block.cpp circuit.cpp
 
-CU_SOURCES        := circuit_host.cu #circuit_kernel.cu
+CU_SOURCES        := hello.cu circuit_host.cu circuit_kernel.cu
 HEADERS           := $(wildcard *.h)
 CPP_OBJS          := $(patsubst %.cpp, %.o, $(CPP_SOURCES))
 CU_OBJS           := $(patsubst %.cu, %.cu_o, $(CU_SOURCES))
@@ -62,6 +62,7 @@ PACKAGE_LIB =$(UMFPACK_LIB) $(CHOLMOD_LIB)
 PACKAGE_INC = -I$(UMFPACK_INC_DIR) -I$(CHOLMOD_INC_DIR)\
 
 %.cu_o : %.cu
+#circuit_host.o: circuit_host.cu
 	$(NVCC) $(NVCCFLAGS) -c $(INCD) -I$(UMFPACK_INC_DIR) -I$(CHOLMOD_INC_DIR) -o $@ $<
 
 %.o: %.cpp 

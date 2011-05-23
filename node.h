@@ -60,7 +60,7 @@ public:
 	size_t rid;		// id in rep_list
 
 private:
-	double value;		// voltage
+	float value;		// voltage
 	bool flag;		// mark if the node is an X
 	Node * rep;		// representative, if somewhere is short-circuit
 	vector<size_t> blocklist;	// belongs to which block

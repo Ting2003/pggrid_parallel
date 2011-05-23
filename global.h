@@ -29,6 +29,6 @@ typedef pair<size_t,size_t> SizeTPair;
 class Triplet;
 typedef Triplet Matrix;
 
-const unsigned int WARPSIZE = 16;
+const unsigned int HALF_WARP = 16;
 //typedef vector<Net *> NetPtrVector;
 #endif

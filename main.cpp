@@ -18,7 +18,8 @@ const char * usage2="Usage: %s -i input -f output\n";
 int main(int argc, char * argv[]){
 	int c;
 	int mode=0;
-	double epsilon, omega, overlap_ratio;
+	double epsilon;
+	double omega, overlap_ratio;
 	size_t max_block_nodes;
 	//char * logfile="/dev/null";
 	char * logfile=NULL;
