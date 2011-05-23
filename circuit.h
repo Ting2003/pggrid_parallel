@@ -110,12 +110,12 @@ private:
 	void update_block_geometry();
 
 	// methods of stamping the matrix
-	void stamp_by_set(Matrix & A, double* b);
+	void stamp_by_set(Matrix & A, float* b);
 	void stamp_resistor(Matrix & A, Net * net);
-	void stamp_current(double* b, Net * net);
-	void stamp_VDD(Matrix & A, double* b, Net * net);
+	void stamp_current(float* b, Net * net);
+	void stamp_VDD(Matrix & A, float* b, Net * net);
 	
-	void make_A_symmetric(Matrix &A, double *bp);
+	void make_A_symmetric(Matrix &A, float *bp);
 	void make_A_symmetric_block();
 
 	void stamp_block_matrix();
@@ -132,7 +132,7 @@ private:
 	void copy_node_voltages_block(bool from=true);
 
 	// after solving, copy node voltage from replist to nodes
-	void get_voltages_from_LU_sol(double* x);
+	void get_voltages_from_LU_sol(float* x);
 	void get_voltages_from_block_LU_sol();
 	void get_vol_mergelist();
 

@@ -102,18 +102,18 @@ void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t 
 	// copy data from L to cudaArray L_d
 	// bind L_d into texture memory
 	// count is the total bytes of all needed data in L
-	// including in order of nz, col, row, and x	
-	//size_t count = (sizeof(int) * 2 + sizeof(float)) * L_h_nz;
+	// including in order of nz, col, row, and x
+	size_t count = sizeof(float) * 3 * L_h_nz;
 	
-	/*// allocate cudaArray and bind it with texture
-	cudaMalloc((void**)&L_d, count);
-	cudaMemcpy(L_d, L_h, count, cudaMemcpyHostToDevice);
+	// allocate cudaArray and bind it with texture
+	cutilSafeCall(cudaMalloc((void**)&L_d, count));
+	cutilSafeCall(cudaMemcpy(L_d, L_h, count, cudaMemcpyHostToDevice));
 	
 	// bind L_d to texture memory
 	cudaBindTexture(0, L_tex, L_d, count);
-	*/	
+		
 	// malloc b and x into a 1d array, copy from host to device
-	size_t count = sizeof(float)* 2 * n;
+	count = sizeof(float)* 2 * n;
 	cutilSafeCall(cudaMalloc((void**)&b_x_d, count));
 	size_t index = 0;
 	cutilSafeCall(cudaMemcpy(b_x_d, bp, sizeof(float)*n, cudaMemcpyHostToDevice));
@@ -136,10 +136,10 @@ void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t 
 	//substitute_CK_free(L_d, b_x_d);
 	cutilSafeCall(cudaMemcpy(bp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
 	cutilSafeCall(cudaMemcpy(xp, &b_x_d[n], sizeof(float)*n, cudaMemcpyDeviceToHost));
-	//for(size_t i=0;i<n;i++)
-		//clog<<"new bp and xp is: "<<b->x[i]<<" "<<x->x[i]<<endl;
+	for(size_t i=0;i<n;i++)
+		clog<<"new bp and xp is: "<<bp[i]<<" "<<xp[i]<<endl;
 	//cutilSafeCall(cudaUnbindTexture(L_tex));
-	//cutilSafeCall(cudaFree(L_d));
+	cutilSafeCall(cudaFree(L_d));
 	cutilSafeCall(cudaFree(b_x_d));
 }
 

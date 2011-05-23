@@ -506,8 +506,8 @@ void Circuit::solve_LU_core(){
 	cm->print = 5;
 	b = cholmod_zeros(n, 1, CHOLMOD_REAL, cm);
 	x = cholmod_zeros(n, 1, CHOLMOD_REAL, cm);
-	double *bp, *xp;
-	bp = static_cast<double *> (b->x);
+	float *bp, *xp;
+	bp = static_cast<float *> (b->x);
 	Matrix A;
 	stamp_by_set(A, bp);
 	make_A_symmetric(A, bp);
@@ -517,11 +517,13 @@ void Circuit::solve_LU_core(){
 		clog<<"i, b: "<<i<<" "<<bp[i]<<endl;
 	
 	clock_t t1, t2;
-	t1= clock();	
-	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem);
+	t1= clock();
+	xp = static_cast<float *> (x->x);
+	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem, bp, xp);
 	t2 = clock();
 	clog<<"solving time is: "<<1.0 *(t2 - t1) / CLOCKS_PER_SEC<<endl;
-	xp = static_cast<double *> (x->x);
+
+	//xp = static_cast<double *> (x->x);
 	for(size_t i=0;i<replist.size();i++)
 		clog<<"i, x: "<<i<<" "<<xp[i]<<endl;
 	/*fp = fopen("X.mtx", "w");
@@ -548,11 +550,11 @@ void Circuit::solve_LU(){
 
 // given vector x that obtained from LU, set the value to the corresponding
 // node in nodelist
-void Circuit::get_voltages_from_LU_sol(double * x){
+void Circuit::get_voltages_from_LU_sol(float * x){
 	for(size_t i=0;i<nodelist.size()-1;i++){
 		Node * node = nodelist[i];
 		size_t id = node->rep->rid;	// get rep's id in Vec
-		double v = x[id];		// get its rep's value
+		float v = x[id];		// get its rep's value
 		node->value = v;
 	}
 }
@@ -728,7 +730,7 @@ void Circuit::copy_node_voltages_block(bool from){
 
 // stamp the net in each set, 
 // *NOTE* at the same time insert the net into boundary netlist
-void Circuit::stamp_by_set(Matrix & A, double* b){
+void Circuit::stamp_by_set(Matrix & A, float* b){
 	for(int type=0;type<NUM_NET_TYPE;type++){
 		NetList & ns = net_set[type];
 		NetList::iterator it;
@@ -761,7 +763,7 @@ void Circuit::stamp_by_set(Matrix & A, double* b){
 	}
 }
 
-void Circuit::make_A_symmetric(Matrix &A, double *b){
+void Circuit::make_A_symmetric(Matrix &A, float *b){
 	int type = RESISTOR;
 	NetList & ns = net_set[type];
 	NetList::iterator it;
@@ -842,7 +844,7 @@ void Circuit::stamp_resistor(Matrix & A, Net * net){
 }
 
 // stamp a current source
-void Circuit::stamp_current(double * b, Net * net){
+void Circuit::stamp_current(float * b, Net * net){
 	Node * nk = net->ab[0]->rep;
 	Node * nl = net->ab[1]->rep;
 	if( !nk->is_ground() && !nk->isX() ) { 
@@ -856,7 +858,7 @@ void Circuit::stamp_current(double * b, Net * net){
 }
 
 // stamp a voltage source
-void Circuit::stamp_VDD(Matrix & A, double * b, Net * net){
+void Circuit::stamp_VDD(Matrix & A, float * b, Net * net){
 	// find the non-ground node
 	Node * X = net->ab[0];
 	if( X->is_ground() ) X = net->ab[1];
