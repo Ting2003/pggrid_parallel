@@ -8,7 +8,7 @@ extern "C"
 void substitute_CK_host(float *L_h, size_t L_h_nz, float*bp, float *xp, size_t n);
 
 extern "C"
-void substitute_setup(trip_L *L_h, size_t L_h_nz, float *L_d, cholmod_dense *b, cholmod_dense *&x, double *b_x_d);
+void substitute_setup(float *L_h, size_t L_h_nz, float *&L_d, float *b, float *x, float *&b_x_d, size_t n);
 
 extern "C"
 void substitute_copy_back(cholmod_dense *x, double *b_x_d, size_t index);

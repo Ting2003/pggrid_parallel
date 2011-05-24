@@ -97,34 +97,34 @@ __global__ void substitute_CK_kernel(float *L_d, size_t L_h_nz, float *b_x_d, si
 void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t n){
 	float *L_d ;	
 	float *b_x_d ;
+	// dump cudaMalloc, as the first call wll cost about 1s
+	// which is much larger than usual 1e-6s
+	cudaMalloc((void**)&L_d, sizeof(float));
+	unsigned int timer;
+	float cudaTime;
+	CUT_SAFE_CALL(cutCreateTimer(&timer));
+	CUT_SAFE_CALL(cutStartTimer(timer));
+
 	// copy data from L to cudaArray L_d
-	// bind L_d into texture memory
-	size_t count = sizeof(float) * 3 * L_h_nz;
-	clog<<"L_h_nz: "<<L_h_nz<<endl;
-	
-	// allocate cudaArray and bind it with texture
-	cutilSafeCall(cudaMalloc((void**)&L_d, count));
-	cutilSafeCall(cudaMemcpy(L_d, L_h, count, cudaMemcpyHostToDevice));
-	
-	cutilSafeCall(cudaBindTexture(0, L_tex, L_d, channelDesc, count));
-		
-	// malloc b and x into a 1d array, copy from host to device
-	count = sizeof(float)* 2 * n;
-	cutilSafeCall(cudaMalloc((void**)&b_x_d, count));
-	size_t index = 0;
-	cutilSafeCall(cudaMemcpy(b_x_d, bp, sizeof(float)*n, cudaMemcpyHostToDevice));
-	index += n;
-	cutilSafeCall(cudaMemcpy(&b_x_d[index], xp, sizeof(float)*n, cudaMemcpyHostToDevice));
-	
-	//substitute_setup(L_h, L_h_nz, L_d, b, x, b_x_d);
+	// bind L_d into texture memory	
+	substitute_setup(L_h, L_h_nz, L_d, bp, xp, b_x_d, n);
+
 	dim3 dimGrid(1, 1);
 	dim3 dimBlock(256, 1, 1);
-	int sharedMemSize =count;
+	int sharedMemSize =sizeof(float) *2 *n;
 	clog<<"shared mem size: "<<sharedMemSize<<endl;
 	// perform for- and back-ward substitution for each block
 	// solution will be written from shared memory into global memory
+	unsigned int timer_compute;
+	float cudaTime_compute;
+	CUT_SAFE_CALL(cutCreateTimer(&timer_compute));
+	CUT_SAFE_CALL(cutStartTimer(timer_compute));
 	substitute_CK_kernel<<<dimGrid, dimBlock, sharedMemSize>>>(L_d, L_h_nz, b_x_d, n);
 	cutilCheckMsg("Kernel execution failed.");
+	CUT_SAFE_CALL(cutStopTimer(timer_compute));
+	cudaTime_compute = cutGetTimerValue(timer_compute);
+	clog<<"kernel time: "<<cudaTime_compute/1000<<" (s) "<<endl;
+	CUT_SAFE_CALL(cutDeleteTimer(timer_compute));	
 
 	// copy solution back from GPU into CPU
 	// where CPU will perform the find_diff and updaterhs()
@@ -135,6 +135,11 @@ void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t 
 	cutilSafeCall(cudaUnbindTexture(L_tex));
 	cutilSafeCall(cudaFree(L_d));
 	cutilSafeCall(cudaFree(b_x_d));
+	
+	CUT_SAFE_CALL(cutStopTimer(timer));
+	cudaTime = cutGetTimerValue(timer);
+	clog<<"gpu time: "<<cudaTime/1000<<" (s) "<<endl;
+	CUT_SAFE_CALL(cutDeleteTimer(timer));
 }
 
 
@@ -144,28 +149,20 @@ void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t 
 //    and value
 // 2. combine L into texture memory
 // 3. load dense array b and x from host into global 1d array
-void substitute_setup(trip_L *L_h, size_t L_h_nz, float *L_d, cholmod_dense *b, cholmod_dense *&x, double *b_x_d){
-	// count is the total bytes of all needed data in L
-	// including in order of nz, col, row, and x
-	size_t count_unit = sizeof(int)* 2;
-	count_unit +=sizeof(double);
-	
-	size_t count = count_unit * L_h_nz;
-	
+void substitute_setup(float *L_h, size_t L_h_nz, float *&L_d, float *bp, float *xp, float *&b_x_d, size_t n){
+	size_t count = sizeof(float) * 3 * L_h_nz;		
 	// allocate cudaArray and bind it with texture
-	cudaMalloc((void**)&L_d, count);
-	cudaMemcpy(L_d, L_h, count, cudaMemcpyHostToDevice);
-	
-	// bind L_d to texture memory
-	//cudaBindTexture(0, L_tex, L_d, count);
+	cudaMalloc((void**)&L_d, count);		
+	cutilSafeCall(cudaMemcpy(L_d, L_h, count, cudaMemcpyHostToDevice));	
+	cutilSafeCall(cudaBindTexture(0, L_tex, L_d, channelDesc, count));
 		
 	// malloc b and x into a 1d array, copy from host to device
-	count = sizeof(double)* 2 * b->nrow;
-	cudaMalloc((void**)&b_x_d, count);
+	count = sizeof(float)* 2 * n;
+	cutilSafeCall(cudaMalloc((void**)&b_x_d, count));	
 	size_t index = 0;
-	cudaMemcpy(&b_x_d[0], b->x, b->nrow, cudaMemcpyHostToDevice);
-	index += b->nrow;
-	cudaMemcpy(&b_x_d[index], x->x, x->nrow, cudaMemcpyHostToDevice);
+	cutilSafeCall(cudaMemcpy(b_x_d, bp, sizeof(float)*n, cudaMemcpyHostToDevice));
+	index += n;
+	cutilSafeCall(cudaMemcpy(&b_x_d[index], xp, sizeof(float)*n, cudaMemcpyHostToDevice));
 }
 
 /*

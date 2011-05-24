@@ -71,7 +71,7 @@ void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_
 	// then solve
 	clock_t t1, t2;
 	t1 = clock();
-	 x = cholmod_solve(CHOLMOD_A, L, b, cm);
+	// x = cholmod_solve(CHOLMOD_A, L, b, cm);
 	t2 = clock();
 	clog<<"CPU_solve: "<<1.0 *(t2 - t1) /CLOCKS_PER_SEC<<endl;
 	// L_h is the memory used for host memory, in array format
@@ -79,10 +79,10 @@ void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_
 	// record the length of L_h
 	size_t L_h_nz = 0;
 	factor_to_triplet(L, L_h, L_h_nz);
-	t1 = clock();
+
+	// solve in GPU
 	substitute_CK_host(L_h, L_h_nz, bp, xp, b->nrow);
-	t2 = clock();
-	clog<<"GPU_solve: "<<1.0 *(t2 - t1) /CLOCKS_PER_SEC<<endl;
+	
 	// L_h is the memory used for host memory, in array format
 	//cholmod_print_dense(b, "b", cm);
 	//cholmod_print_factor( L, "L",cm);
