@@ -1,7 +1,7 @@
 #include "circuit_kernel.h"
 #include "global.h"
 
-extern texture<float, 1> L_tex;
+//extern texture<float, 1> L_tex;
 // kernel function, doing forward and backward substitution
 // data stored in L_d: nz, col, row, and x
 // data stored in b_x_d: b and x 

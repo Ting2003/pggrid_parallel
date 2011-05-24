@@ -512,20 +512,11 @@ void Circuit::solve_LU_core(){
 	stamp_by_set(A, bp);
 	make_A_symmetric(A, bp);
 	A.set_row(replist.size());
-	clog<<"Matrix A is: "<<A<<endl;	
-	for(size_t i=0;i<replist.size();i++)
-		clog<<"i, b: "<<i<<" "<<bp[i]<<endl;
 	
-	clock_t t1, t2;
-	t1= clock();
 	xp = static_cast<float *> (x->x);
 	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem, bp, xp);
-	t2 = clock();
-	clog<<"solving time is: "<<1.0 *(t2 - t1) / CLOCKS_PER_SEC<<endl;
 
 	//xp = static_cast<double *> (x->x);
-	for(size_t i=0;i<replist.size();i++)
-		clog<<"i, x: "<<i<<" "<<xp[i]<<endl;
 	/*fp = fopen("X.mtx", "w");
 	fprintf(fp, "%%MatrixMarket matrix coordinate real general\n");	
 	fprintf(fp, "%d %d %d\n", A.get_row(), A.get_row(), A.size());

@@ -48,9 +48,6 @@ void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz){
 		base += L_nz[i];
 	}
 	L_h_nz = L->nzmax;
-	for(size_t i=0;i<L->nzmax;i++)
-		clog<<"L_trip in column: "<<L_h[3*i]<<
-		" "<<L_h[3*i+1]<<" "<<L_h[3*i+2]<<endl;
 	//free(L_nz); free (L_p); free(L_i); free (L_x);
 }
 
@@ -72,17 +69,23 @@ void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_
 	cm->final_ll = true; //stay in LL' format
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
 	// then solve
-	// x = cholmod_solve(CHOLMOD_A, L, b, cm);
+	clock_t t1, t2;
+	t1 = clock();
+	 x = cholmod_solve(CHOLMOD_A, L, b, cm);
+	t2 = clock();
+	clog<<"CPU_solve: "<<1.0 *(t2 - t1) /CLOCKS_PER_SEC<<endl;
 	// L_h is the memory used for host memory, in array format
 	float * L_h = NULL;
 	// record the length of L_h
 	size_t L_h_nz = 0;
 	factor_to_triplet(L, L_h, L_h_nz);
-	for(size_t i=0;i<b->nrow;i++)
-		clog<<"i, bp, xp: "<<i<<" "<<bp[i]<<" "<<xp[i]<<endl;
+	t1 = clock();
 	substitute_CK_host(L_h, L_h_nz, bp, xp, b->nrow);
-	cholmod_print_dense(b, "b", cm);
-	cholmod_print_factor( L, "L",cm);
+	t2 = clock();
+	clog<<"GPU_solve: "<<1.0 *(t2 - t1) /CLOCKS_PER_SEC<<endl;
+	// L_h is the memory used for host memory, in array format
+	//cholmod_print_dense(b, "b", cm);
+	//cholmod_print_factor( L, "L",cm);
 	cholmod_free_factor(&L, cm);
 	free(L_h);
 }

@@ -99,9 +99,8 @@ void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t 
 	float *b_x_d ;
 	// copy data from L to cudaArray L_d
 	// bind L_d into texture memory
-	// count is the total bytes of all needed data in L
-	// including in order of nz, col, row, and x
 	size_t count = sizeof(float) * 3 * L_h_nz;
+	clog<<"L_h_nz: "<<L_h_nz<<endl;
 	
 	// allocate cudaArray and bind it with texture
 	cutilSafeCall(cudaMalloc((void**)&L_d, count));
@@ -118,10 +117,10 @@ void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t 
 	cutilSafeCall(cudaMemcpy(&b_x_d[index], xp, sizeof(float)*n, cudaMemcpyHostToDevice));
 	
 	//substitute_setup(L_h, L_h_nz, L_d, b, x, b_x_d);
-	clog<<"after setup. "<<endl;	
 	dim3 dimGrid(1, 1);
 	dim3 dimBlock(256, 1, 1);
 	int sharedMemSize =count;
+	clog<<"shared mem size: "<<sharedMemSize<<endl;
 	// perform for- and back-ward substitution for each block
 	// solution will be written from shared memory into global memory
 	substitute_CK_kernel<<<dimGrid, dimBlock, sharedMemSize>>>(L_d, L_h_nz, b_x_d, n);
@@ -131,11 +130,9 @@ void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t 
 	// where CPU will perform the find_diff and updaterhs()
 	//substitute_copy_back(x, b_x_d, b->nrow);
 	//substitute_CK_free(L_d, b_x_d);
-	cutilSafeCall(cudaMemcpy(bp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
+	//cutilSafeCall(cudaMemcpy(bp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
 	cutilSafeCall(cudaMemcpy(xp, &b_x_d[n], sizeof(float)*n, cudaMemcpyDeviceToHost));
-	for(size_t i=0;i<n;i++)
-		clog<<"new bp and xp is: "<<bp[i]<<" "<<xp[i]<<endl;
-	//cutilSafeCall(cudaUnbindTexture(L_tex));
+	cutilSafeCall(cudaUnbindTexture(L_tex));
 	cutilSafeCall(cudaFree(L_d));
 	cutilSafeCall(cudaFree(b_x_d));
 }
