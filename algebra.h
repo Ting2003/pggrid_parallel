@@ -16,7 +16,6 @@
 #include "umfpack.h"
 #include "cholmod.h"
 #include "circuit_host.h"
-#include "hello.h"
 class Vec;
 class Algebra{
 public:
