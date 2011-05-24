@@ -28,7 +28,7 @@ bool Algebra::compare_row_first(const trip_L &a, const trip_L &b){
 
 // transform factor matrix from column to triplet
 // output is column-wise triplet expression of L
-void Algebra::factor_to_triplet(cholmod_factor *L, vector<trip_L> &L_trip){
+void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz){
 	int *L_nz, *L_p, *L_i;
 	double *L_x;
 	L_nz = static_cast<int *> (L->nz);
@@ -36,21 +36,21 @@ void Algebra::factor_to_triplet(cholmod_factor *L, vector<trip_L> &L_trip){
 	L_i = static_cast<int *> (L->i);
 	L_x = static_cast<double *> (L->x);
 	size_t n = L->n;
+	L_h = new float [3 *L->nzmax];
+	size_t count = 0; // index for L_h
 	size_t base = 0;
-	trip_L temp;
 	for(size_t i=0; i< n; i++){
 		for(int j=0; j< L_nz[i]; j++){
-			temp.row = L_i[base+j];
-			temp.col = i;
-			temp.val = L_x[base+j];
-			L_trip.push_back(temp);	
+			L_h[count++] = L_i[base+j];
+			L_h[count++] = i;
+			L_h[count++] = L_x[base+j];	
 		}
 		base += L_nz[i];
 	}
-	for(size_t i=0;i<L_trip.size();i++)
-		clog<<"L_trip in column: "<<L_trip[i].row<<
-		" "<<L_trip[i].col<<" "<<L_trip[i].val<<endl;
-	//sort(L_trip.begin(), L_trip.end(), compare_row_first);
+	L_h_nz = L->nzmax;
+	for(size_t i=0;i<L->nzmax;i++)
+		clog<<"L_trip in column: "<<L_h[3*i]<<
+		" "<<L_h[3*i+1]<<" "<<L_h[3*i+2]<<endl;
 	//free(L_nz); free (L_p); free(L_i); free (L_x);
 }
 
@@ -73,21 +73,18 @@ void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
 	// then solve
 	// x = cholmod_solve(CHOLMOD_A, L, b, cm);
-	// hello();
-	vector<trip_L> L_trip;
 	// L_h is the memory used for host memory, in array format
 	float * L_h = NULL;
 	// record the length of L_h
 	size_t L_h_nz = 0;
-	factor_to_triplet(L, L_trip);
-	
-	trip_to_array(L_trip, L_h, L_h_nz);
+	factor_to_triplet(L, L_h, L_h_nz);
 	for(size_t i=0;i<b->nrow;i++)
 		clog<<"i, bp, xp: "<<i<<" "<<bp[i]<<" "<<xp[i]<<endl;
 	substitute_CK_host(L_h, L_h_nz, bp, xp, b->nrow);
 	cholmod_print_dense(b, "b", cm);
 	cholmod_print_factor( L, "L",cm);
-	cholmod_free_factor(&L, cm);	
+	cholmod_free_factor(&L, cm);
+	free(L_h);
 }
 
 // doing cholesky decomposition
