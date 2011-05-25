@@ -34,21 +34,20 @@ void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz){
 	L_nz = static_cast<int *> (L->nz);
 	L_p = static_cast<int *> (L->p);
 	L_i = static_cast<int *> (L->i);
-	L_x = static_cast<double *> (L->x);
+	L_x = static_cast<double *> (L->x);	
+	
 	size_t n = L->n;
 	L_h = new float [3 *L->nzmax];
 	size_t count = 0; // index for L_h
 	size_t base = 0;
 	for(size_t i=0; i< n; i++){
-		for(int j=0; j< L_nz[i]; j++){
-			L_h[count++] = L_i[base+j];
+		L_h_nz += L_nz[i];
+		for(int j=L_p[i]; j< L_nz[i]+L_p[i]; j++){
+			L_h[count++] = L_i[j];
 			L_h[count++] = i;
-			L_h[count++] = L_x[base+j];	
+			L_h[count++] = L_x[j];
 		}
-		base += L_nz[i];
 	}
-	L_h_nz = L->nzmax;
-	//free(L_nz); free (L_p); free(L_i); free (L_x);
 }
 
 void Algebra::trip_to_array(vector<trip_L>&L_trip, float *&L_h, size_t &L_h_nz){
@@ -66,26 +65,37 @@ void Algebra::trip_to_array(vector<trip_L>&L_trip, float *&L_h, size_t &L_h_nz){
 // deliver the address of x
 void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_common *cm, size_t &peak_mem, size_t &CK_mem, float *bp, float *xp){
 	cholmod_factor *L;
+	cm->nmethods = 5; // natural ordering
 	cm->final_ll = true; //stay in LL' format
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
+	cholmod_print_factor(L,"L", cm);	
 	// then solve
 	clock_t t1, t2;
 	t1 = clock();
-	// x = cholmod_solve(CHOLMOD_A, L, b, cm);
+	//x = cholmod_solve(CHOLMOD_A, L, b, cm);
 	t2 = clock();
 	clog<<"CPU_solve: "<<1.0 *(t2 - t1) /CLOCKS_PER_SEC<<endl;
+
 	// L_h is the memory used for host memory, in array format
 	float * L_h = NULL;
 	// record the length of L_h
 	size_t L_h_nz = 0;
 	factor_to_triplet(L, L_h, L_h_nz);
 
+	/*FILE *fp;
+	fp = fopen("L.dat", "w");
+	for(size_t i=0;i<L_h_nz;i++)
+		fprintf(fp, "%f %f %f\n", L_h[3*i]+1, L_h[3*i+1]+1, L_h[3*i+2]);
+	fclose(fp);
+	fp = fopen("B.dat", "w");
+	for(size_t i=0;i<b->nrow;i++)
+		fprintf(fp, "%f\n", bp[i]);
+	fclose(fp);
+	*/
 	// solve in GPU
 	substitute_CK_host(L_h, L_h_nz, bp, xp, b->nrow);
 	
 	// L_h is the memory used for host memory, in array format
-	//cholmod_print_dense(b, "b", cm);
-	//cholmod_print_factor( L, "L",cm);
 	cholmod_free_factor(&L, cm);
 	free(L_h);
 }
@@ -122,11 +132,11 @@ void Algebra::CK_decomp(Matrix &A, cholmod_factor *&L, cholmod_common *cm, size_
 	// free the triplet pointer
 	cholmod_free_triplet(&T, cm);
 
-	cm->supernodal = -1;// always do simplictical LL'	
+	cm->supernodal = -1;// always do simplictical LL'
 	//cm->final_super = false;
-	//cm->final_ll = true;
-	//cholmod_print_common("common", cm);
 	L = cholmod_analyze(A_cholmod, cm);
+	//cholmod_print_common("cm", cm);
+	L->ordering = CHOLMOD_NATURAL;
 	cholmod_factorize(A_cholmod, L, cm);
 	if(peak_mem < cm->memory_usage)
 		peak_mem = cm->memory_usage;

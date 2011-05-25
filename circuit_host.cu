@@ -132,6 +132,7 @@ void substitute_CK_host(float *L_h, size_t L_h_nz, float *bp, float *xp, size_t 
 	// where CPU will perform the find_diff and updaterhs()
 	//cutilSafeCall(cudaMemcpy(bp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
 	cutilSafeCall(cudaMemcpy(xp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
+	
 	cutilSafeCall(cudaUnbindTexture(L_tex));
 	cutilSafeCall(cudaFree(L_d));
 	cutilSafeCall(cudaFree(b_x_d));
@@ -156,6 +157,8 @@ void substitute_setup(float *L_h, size_t L_h_nz, float *&L_d, float *bp, float *
 	cutilSafeCall(cudaMemcpy(L_d, L_h, count, cudaMemcpyHostToDevice));	
 	cutilSafeCall(cudaBindTexture(0, L_tex, L_d, channelDesc, count));
 		
+	//for(size_t i=0;i<n;i++)
+		//clog<<"i, b: "<<i<<" "<<bp[i]<<endl;
 	// malloc b and x into a 1d array, copy from host to device
 	count = sizeof(float) * n;
 	cutilSafeCall(cudaMalloc((void**)&b_x_d, count));	

@@ -506,28 +506,36 @@ void Circuit::solve_LU_core(){
 	cm->print = 5;
 	b = cholmod_zeros(n, 1, CHOLMOD_REAL, cm);
 	x = cholmod_zeros(n, 1, CHOLMOD_REAL, cm);
-	float *bp, *xp;
-	bp = static_cast<float *> (b->x);
+	double *bp, *xp;
+	float *bp_f, *xp_f;
+	bp_f=  new float [replist.size()];
+	xp_f = new float [replist.size()];
+	bp = static_cast<double *> (b->x);
 	Matrix A;
 	stamp_by_set(A, bp);
 	make_A_symmetric(A, bp);
 	A.set_row(replist.size());
-	
-	xp = static_cast<float *> (x->x);
-	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem, bp, xp);
+	/*A.merge();
+	FILE *fp;
+	fp = fopen("A.dat","w");
+	for(size_t i=0;i<A.Ti.size();i++){
+		fprintf(fp, "%d %d %f\n", A.Ti[i]+1, A.Tj[i]+1, A.Tx[i]);
+	}
+	fclose(fp);*/
+	// set a float array to copy b value
+	// so that cholmod_dense b would not be affected
+	for(size_t i=0;i<replist.size();i++)
+		bp_f[i] = bp[i];
 
+	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem, bp_f, xp_f);
 	//xp = static_cast<double *> (x->x);
-	/*fp = fopen("X.mtx", "w");
-	fprintf(fp, "%%MatrixMarket matrix coordinate real general\n");	
-	fprintf(fp, "%d %d %d\n", A.get_row(), A.get_row(), A.size());
-	fprintf(fp, "%d %d %d\n", A.get_row(), 1, A.get_row());
-	for(size_t i=0;i<A.get_row();i++)
-		fprintf(fp, "%f\n", xp[i]);
-	fclose(fp);
-	*/
+	//for(size_t i=0;i<replist.size();i++)
+	//	xp_f[i] = xp[i];
+	
 	// Vec b contains result, copy it back to nodelist
-	get_voltages_from_LU_sol(xp);
+	get_voltages_from_LU_sol(xp_f);
 	get_vol_mergelist();
+	free(bp_f); free(xp_f);
 	cholmod_free_dense(&x, cm);
 	cholmod_free_dense(&b, cm);
 	cholmod_finish(&c);
@@ -721,7 +729,7 @@ void Circuit::copy_node_voltages_block(bool from){
 
 // stamp the net in each set, 
 // *NOTE* at the same time insert the net into boundary netlist
-void Circuit::stamp_by_set(Matrix & A, float* b){
+void Circuit::stamp_by_set(Matrix & A, double* b){
 	for(int type=0;type<NUM_NET_TYPE;type++){
 		NetList & ns = net_set[type];
 		NetList::iterator it;
@@ -754,7 +762,7 @@ void Circuit::stamp_by_set(Matrix & A, float* b){
 	}
 }
 
-void Circuit::make_A_symmetric(Matrix &A, float *b){
+void Circuit::make_A_symmetric(Matrix &A, double *b){
 	int type = RESISTOR;
 	NetList & ns = net_set[type];
 	NetList::iterator it;
@@ -835,7 +843,7 @@ void Circuit::stamp_resistor(Matrix & A, Net * net){
 }
 
 // stamp a current source
-void Circuit::stamp_current(float * b, Net * net){
+void Circuit::stamp_current(double * b, Net * net){
 	Node * nk = net->ab[0]->rep;
 	Node * nl = net->ab[1]->rep;
 	if( !nk->is_ground() && !nk->isX() ) { 
@@ -849,7 +857,7 @@ void Circuit::stamp_current(float * b, Net * net){
 }
 
 // stamp a voltage source
-void Circuit::stamp_VDD(Matrix & A, float * b, Net * net){
+void Circuit::stamp_VDD(Matrix & A, double * b, Net * net){
 	// find the non-ground node
 	Node * X = net->ab[0];
 	if( X->is_ground() ) X = net->ab[1];
