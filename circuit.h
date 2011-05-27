@@ -28,6 +28,10 @@
 #include "vec.h"
 #include "triplet.h"
 #include "block.h"
+#include "trip_L.h"
+
+#include "circuit_host.h"
+
 using namespace std;
 using namespace std::tr1;
 
@@ -96,6 +100,9 @@ private:
 
 	bool solve_IT();
 	void solve_block_LU();
+
+	// solve grid in blocks with parallel version
+	void solve_CK_block();
 
 	bool solve_pcg();
 	//bool solve_block_pcg();

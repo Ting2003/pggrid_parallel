@@ -16,11 +16,12 @@
 #include "umfpack.h"
 
 Block::Block(size_t _count):
-        b_ck(NULL),
+        L_h(NULL),
+	b_ck(NULL),
 	b_new_ck(NULL),
-	//bp(NULL),
-	//bnewp(NULL),
-	//xp(NULL),
+	bp(NULL),
+	bnewp(NULL),
+	xp(NULL),
 	x_ck(NULL),	
 	count(_count),
 	nodes(NULL),
@@ -32,6 +33,10 @@ Block::~Block(){
 }
 
 void Block::free_block_cholmod(cholmod_common *cm){
+    // error will appear adding these frees
+    //free(bp); free(bnewp); free(xp);
+    //free(bnewp_f); free(xp_f);
+    free(L_h);
     cholmod_free_factor(&L, cm);
     cholmod_free_dense(&b_ck, cm);
     cholmod_free_dense(&b_new_ck, cm);
@@ -47,6 +52,11 @@ void Block::solve_CK(cholmod_common *cm){
 	x_ck = cholmod_solve(CHOLMOD_A, L, b_new_ck, cm);
 }
 
+void Block::solve_CK_setup(cholmod_common *cm){
+	L_h_nz = 0;
+	Algebra::factor_to_triplet(L, L_h, L_h_nz);
+}
+
 void Block::allocate_resource(cholmod_common *cm){
 	if( count == 0 ) return;
 	nodes = new Node *[count];
@@ -56,7 +66,11 @@ void Block::allocate_resource(cholmod_common *cm){
 	bp = static_cast<double*>(b_ck->x);
 	xp = static_cast<double*>(x_ck->x);
 	b_new_ck = cholmod_zeros(count, 1, CHOLMOD_REAL, cm);
-	bnewp = static_cast<double*>(b_new_ck->x);	
+	bnewp = static_cast<double*>(b_new_ck->x);
+	
+	// allocate variable for parallel version
+	bnewp_f = new float[count];
+	xp_f = new float[count];
 }
 
 // return the relative position of this block to another block

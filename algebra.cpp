@@ -63,9 +63,10 @@ void Algebra::trip_to_array(vector<trip_L>&L_trip, float *&L_h, size_t &L_h_nz){
 }
 
 // deliver the address of x
-void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_common *cm, size_t &peak_mem, size_t &CK_mem, float *bp, float *xp){
+void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_common *cm, 
+			size_t &peak_mem, size_t &CK_mem, float *bp, float *xp){
 	cholmod_factor *L;
-	cm->nmethods = 5; // natural ordering
+	//cm->nmethods = 5; // natural ordering
 	cm->final_ll = true; //stay in LL' format
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
 	cholmod_print_factor(L,"L", cm);	
@@ -93,7 +94,7 @@ void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_
 	fclose(fp);
 	*/
 	// solve in GPU
-	substitute_CK_host(L_h, L_h_nz, bp, xp, b->nrow);
+	//substitute_CK_host(L_h, L_h_nz, bp, xp, b->nrow);
 	
 	// L_h is the memory used for host memory, in array format
 	cholmod_free_factor(&L, cm);
@@ -138,8 +139,6 @@ void Algebra::CK_decomp(Matrix &A, cholmod_factor *&L, cholmod_common *cm, size_
 	//cholmod_print_common("cm", cm);
 	L->ordering = CHOLMOD_NATURAL;
 	cholmod_factorize(A_cholmod, L, cm);
-	if(peak_mem < cm->memory_usage)
-		peak_mem = cm->memory_usage;
-	CK_mem += cm->lnz;
+	cholmod_print_factor(L, "L", cm);
 	cholmod_free_sparse(&A_cholmod, cm);
 }

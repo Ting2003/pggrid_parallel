@@ -32,7 +32,7 @@ CPP_SOURCES       := util.cpp point.cpp node.cpp net.cpp parser.cpp\
 		     vec.cpp main.cpp triplet.cpp algebra.cpp \
 		     block.cpp circuit.cpp
 
-CU_SOURCES        := circuit_host.cu #circuit_kernel.cu
+CU_SOURCES        := circuit_host.cu circuit_kernel.cu
 HEADERS           := $(wildcard *.h)
 CPP_OBJS          := $(patsubst %.cpp, %.o, $(CPP_SOURCES))
 CU_OBJS           := $(patsubst %.cu, %.cu_o, $(CU_SOURCES))

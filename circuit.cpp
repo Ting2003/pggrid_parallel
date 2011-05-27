@@ -32,11 +32,11 @@
 using namespace std;
 
 double Circuit::EPSILON = 1e-5;
-size_t Circuit::MAX_BLOCK_NODES = 5500;
+size_t Circuit::MAX_BLOCK_NODES = 8;//5500;
 double Circuit::OMEGA = 1.2;
-double Circuit::OVERLAP_RATIO = 0.2;
+double Circuit::OVERLAP_RATIO = 0.5;//0.2;
 int    Circuit::MODE = 0;
-const int MAX_ITERATION = 1000;
+const int MAX_ITERATION = 1;//1000;
 const int SAMPLE_INTERVAL = 5;
 const size_t SAMPLE_NUM_NODE = 10;
 const double MERGE_RATIO = 0.3;
@@ -333,8 +333,6 @@ void Circuit::stamp_block_matrix(){
 	for(size_t i=0;i<num_blocks;i++){
 		if(block_info[i].count>0){
 			A[i].set_row(block_info[i].count);
-			//clog<<"block.size: "<<A[i].get_row()<<endl;
-			//A[i].merge();
 			block_info[i].CK_decomp(A[i], cm, peak_mem, CK_mem);
 		}
 	}
@@ -380,7 +378,7 @@ bool Circuit::solve_IT(){
 		circuit_type = C4;
 	solve_init();
 
-	if( replist.size() <= 2*MAX_BLOCK_NODES ){
+	if( replist.size() <= MAX_BLOCK_NODES ){
 		clog<<"Replist is small, use direct LU instead."<<endl;
 		solve_LU_core();
 		return true;
@@ -401,9 +399,8 @@ bool Circuit::solve_IT(){
 	cm = &c;
 	cholmod_start(cm);
 	cm->print = 5;
-	cholmod_print_common("first_cm",cm);
+	cm->final_ll = true; //stay in LL' format
 	block_init();
-	cholmod_print_common("stamp_cm",cm);
 
 	clog<<"e="<<EPSILON
 	    <<"\to="<<OMEGA
@@ -438,6 +435,10 @@ bool Circuit::solve_IT(){
 	return successful;
 }
 
+void Circuit::solve_CK_block(){
+	block_CK_host(block_info);	
+}
+
 // TODO: add comment
 void Circuit::node_voltage_init(){
 	for(size_t i=0;i<block_info.size();i++){
@@ -457,29 +458,41 @@ void Circuit::node_voltage_init(){
 // 4. track the maximum error of solution
 double Circuit::solve_iteration(){	
 	double diff = .0, max_diff = .0;
+	double *x_old;
 	for(size_t i=0;i<block_info.size();i++){
 		Block &block = block_info[i];
 		if( block.count == 0 ) continue;
 
 		block.update_rhs();
-		// backup the old voltage value
 
-		double *x_old;
+		// backup the old voltage value
+		//double *x_old;
 		x_old = new double [block.count];
 		for(size_t k=0; k<block.count;k++){
 			x_old[k] = block.xp[k];
+			// assign bnewp_f to store float version
+			block.bnewp_f[k] = block.bnewp[k];
 		}
-		//cout<<"Matrix A for block: "<<block.bid<<endl;
-		block.solve_CK(cm);
+
+		// for each block, get the L_h and L_h_nz
+		block.solve_CK_setup(cm);
+	}
+
+	// function in circuit, doing CK solve in parallel
+	solve_CK_block();
+
+	for(size_t i=0;i<block_info.size();i++){
+		Block & block = block_info[i];
 		block.xp = static_cast<double *>(block.x_ck->x); 
 
 		// modify node voltage with OMEGA and old voltage value
 		diff = modify_voltage(block, x_old);
-		delete [] x_old;
+		//delete [] x_old;
 
 		//diff = distance_inf( block.x, x_old );
 		if( max_diff < diff ) max_diff = diff;
 	}
+	delete [] x_old;
 	return max_diff;
 }
 
@@ -515,13 +528,7 @@ void Circuit::solve_LU_core(){
 	stamp_by_set(A, bp);
 	make_A_symmetric(A, bp);
 	A.set_row(replist.size());
-	/*A.merge();
-	FILE *fp;
-	fp = fopen("A.dat","w");
-	for(size_t i=0;i<A.Ti.size();i++){
-		fprintf(fp, "%d %d %f\n", A.Ti[i]+1, A.Tj[i]+1, A.Tx[i]);
-	}
-	fclose(fp);*/
+
 	// set a float array to copy b value
 	// so that cholmod_dense b would not be affected
 	for(size_t i=0;i<replist.size();i++)

@@ -27,6 +27,7 @@ public:
 	void LU_decomposition();
 	void CK_decomp(Matrix & A, cholmod_common *cm, size_t &peak_mem, size_t &CK_mem);
 	void solve_CK(cholmod_common *cm); // solve with cholesky decomp
+	void solve_CK_setup(cholmod_common *cm);
 
 	// allocate space for the matrix and vectors accoding to count
 	void allocate_resource(cholmod_common*cm);
@@ -42,6 +43,9 @@ public:
 	}
 
 	cholmod_factor * L;
+	// variable for parallel usage
+	float *L_h;
+	size_t L_h_nz; // #nz in L
 
 	NetPtrVector boundary_netlist;
 	
@@ -49,6 +53,9 @@ public:
 	cholmod_dense * b_ck, *b_new_ck;
 	// pointer to b_ck, b_new_ck, and x_ck;
 	double *bp, *bnewp, *xp;
+
+	// float pointer for parallel computation
+	float *bnewp_f, *xp_f;
 	// solution
 	cholmod_dense *x_ck;
 

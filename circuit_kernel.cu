@@ -1,25 +1,32 @@
 #include "circuit_kernel.h"
 #include "global.h"
 
-//extern texture<float, 1> L_tex;
-// kernel function, doing forward and backward substitution
-// data stored in L_d: nz, col, row, and x
-// data stored in b_x_d: b and x 
-__global__ void substitute_CK_kernel(float *L_d, size_t L_h_nz, float *b_x_d, size_t n){
+// block version kernel function 
+// doing forward and backward substitution
+// data stored in L_d: row, col, val for each block
+// data stored in b_x_d: b for each block
+// L_nz_d, L_n_d: nz and n for each block
+// base_nz_d, base_n_d: nz base and n base for each block
+__global__ void CK_block_kernel(float *L_d, float *b_x_d, 
+		int * L_nz_d, int *L_n_d, size_t *base_nz_d, 
+		size_t *base_n_d, int max_block_size){
 	int tid = threadIdx.x;
-	// load data into shared memory
+	// load 1 block data into shared memory
 	extern __shared__ float b_x_s[];
 
+	int block_id = blockIdx.y * gridDim.x + blockIdx.x;
+	
 	int i, j;
-	int iter = n / blockDim.x ;
-	if(((n % blockDim.x)!=0)) iter += 1;
+	int iter = L_n_d[block_id] / blockDim.x ;
+	if(((L_n_d[block_id] % blockDim.x)!=0)) iter += 1;
+	int block_base = base_n_d[block_id];
 	for(i=0; i< iter; i++){
-		int base = i * blockDim.x;
-		if((base+tid) < n)
-			b_x_s[base+tid] = b_x_d[base+tid];
+		int thread_base = i * blockDim.x;
+		if((thread_base+tid) < L_n_d[block_id])
+			b_x_s[thread_base+tid+block_base] = b_x_d[block_base+tid+thread_base];
 	}
 	__syncthreads();
-		
+	/*
 	i = 0; j = 0;
 	int index_col = 0, index_row = 0;
 	size_t row_p;
@@ -72,5 +79,5 @@ __global__ void substitute_CK_kernel(float *L_d, size_t L_h_nz, float *b_x_d, si
 		int base = i * blockDim.x;
 		if((base+tid) < n)
 			b_x_d[base+tid] = b_x_s[base+tid];
-	}
+	}*/
 }
