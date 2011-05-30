@@ -30,6 +30,9 @@ Block::Block(size_t _count):
 
 Block::~Block(){
     delete [] nodes;
+    //delete [] x_old;
+    //delete [] xp_f;
+    //delete [] bnewp_f;
 }
 
 void Block::free_block_cholmod(cholmod_common *cm){
@@ -55,9 +58,6 @@ void Block::solve_CK(cholmod_common *cm){
 void Block::solve_CK_setup(cholmod_common *cm){
 	L_h_nz = 0;
 	Algebra::factor_to_triplet(L, L_h, L_h_nz);
-	clog<<"bid "<<bid<<endl;
-	for(size_t i=0;i<L_h_nz;i++)
-		clog<<L_h[3*i]<<" "<<L_h[3*i+1]<<" "<<L_h[3*i+2]<<endl;
 }
 
 void Block::allocate_resource(cholmod_common *cm){
@@ -74,6 +74,7 @@ void Block::allocate_resource(cholmod_common *cm){
 	// allocate variable for parallel version
 	bnewp_f = new float[count];
 	xp_f = new float[count];
+	x_old = new float[count];
 }
 
 // return the relative position of this block to another block

@@ -226,8 +226,6 @@ void block_CK_host(BlockInfo &block_info){
 		&b_x_d[base], sizeof(float)*block_info[i].count, 
 		cudaMemcpyDeviceToHost);
 		base  += block_info[i].count;
-		//for(size_t j=0;j<block_info[i].count;j++)
-			//clog<<"solution x is: "<<j<<" "<<block_info[i].xp_f[j]<<endl;
 	}
 	//cutilSafeCall(cudaMemcpy(xp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
 	

@@ -158,7 +158,7 @@ private:
 	void find_block_base();
 
 	void partition_circuit();
-	double modify_voltage(Block & block, double* x_old);
+	double modify_voltage(Block & block);
 
 	void node_voltage_init();
 	void solve_one_block(size_t block_id);

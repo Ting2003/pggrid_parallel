@@ -257,6 +257,9 @@ void Circuit::block_init(){
 	block_info.update_block_geometry();
 	find_block_size();
 	copy_node_voltages_block();
+	//for(size_t i=0;i<block_info.size();i++)
+		//for(size_t j=0;j<block_info[i].count;j++)
+			//clog<<block_info[i].xp_f[j]<<endl;
 
 	//stamp_boundary_matrix();
 	stamp_block_matrix();
@@ -426,8 +429,12 @@ bool Circuit::solve_IT(){
 	get_vol_mergelist();
 	//clog<<"before free. "<<endl;
 	for(size_t i=0;i<block_info.size();i++){
-		if(block_info[i].count > 0)
+		if(block_info[i].count > 0){
 			block_info[i].free_block_cholmod(cm);
+			free(block_info[i].xp_f);
+			free(block_info[i].bnewp_f);
+			free(block_info[i].x_old);
+		}
 	}
 	//clog<<"after free. "<<endl;
 	
@@ -458,7 +465,6 @@ void Circuit::node_voltage_init(){
 // 4. track the maximum error of solution
 double Circuit::solve_iteration(){	
 	double diff = .0, max_diff = .0;
-	double *x_old;
 	for(size_t i=0;i<block_info.size();i++){
 		Block &block = block_info[i];
 		if( block.count == 0 ) continue;
@@ -467,10 +473,9 @@ double Circuit::solve_iteration(){
 
 		// backup the old voltage value
 		//double *x_old;
-		x_old = new double [block.count];
 		//clog<<"block_id: "<<block.bid<<endl;
 		for(size_t k=0; k<block.count;k++){
-			x_old[k] = block.xp[k];
+			block.x_old[k] = block.xp_f[k];
 			// assign bnewp_f to store float version
 			block.bnewp_f[k] = block.bnewp[k];
 			//clog<<k<<" "<<block.bnewp_f[k]<<endl;
@@ -479,31 +484,26 @@ double Circuit::solve_iteration(){
 		// for each block, get the L_h and L_h_nz
 		block.solve_CK_setup(cm);
 	}
-
 	// function in circuit, doing CK solve in parallel
 	solve_CK_block();
 
 	for(size_t i=0;i<block_info.size();i++){
 		Block & block = block_info[i];
-		block.xp = static_cast<double *>(block.x_ck->x); 
-
 		// modify node voltage with OMEGA and old voltage value
-		diff = modify_voltage(block, x_old);
+		diff = modify_voltage(block);
 		//delete [] x_old;
-
 		//diff = distance_inf( block.x, x_old );
 		if( max_diff < diff ) max_diff = diff;
 	}
-	delete [] x_old;
 	return max_diff;
 }
 
-double Circuit::modify_voltage(Block & block, double * x_old){
+double Circuit::modify_voltage(Block & block){
 	double max_diff = 0.0;
 	for(size_t i=0;i<block.count;i++){
-		block.xp[i] = (1-OMEGA) * x_old[i] + OMEGA * block.xp[i];
-		block.nodes[i]->value = block.xp[i];
-		double diff = fabs(x_old[i] - block.xp[i]);
+		block.xp_f[i] = (1-OMEGA) * block.x_old[i] + OMEGA * block.xp_f[i];
+		block.nodes[i]->value = block.xp_f[i];
+		double diff = fabs(block.x_old[i] - block.xp_f[i]);
 		if( diff > max_diff ) max_diff = diff;
 	}
 	return max_diff;
@@ -615,7 +615,7 @@ void Circuit::get_voltages_from_block_LU_sol(){
 		size_t id = node->rep->id_in_block[0];
 		//Vec &p = block.x;
 		//double v = p[id];		// get its rep's value
-		double v = block.xp[id];
+		double v = block.xp_f[id];
 		node->value = v;
 	}
 }
@@ -714,7 +714,7 @@ void Circuit::copy_node_voltages_block(bool from){
 			for(size_t j=0;j<block_id.size();j++){
 				Block &block = block_info[block_id[j]];
 				id = node->id_in_block[j];
-				block.xp[id] = replist[i]->value;
+				block.xp_f[id] = replist[i]->value;
 				//block.x[id] = replist[i]->value;
 				block.nodes[id] = replist[i];
 			}

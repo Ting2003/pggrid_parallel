@@ -55,7 +55,7 @@ public:
 	double *bp, *bnewp, *xp;
 
 	// float pointer for parallel computation
-	float *bnewp_f, *xp_f;
+	float *bnewp_f, *xp_f, *x_old;
 	// solution
 	cholmod_dense *x_ck;
 
