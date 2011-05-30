@@ -41,13 +41,14 @@ void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz){
 	size_t count = 0; // index for L_h
 	size_t base = 0;
 	for(size_t i=0; i< n; i++){
-		L_h_nz += L_nz[i];
+		//L_h_nz += L_nz[i];
 		for(int j=L_p[i]; j< L_nz[i]+L_p[i]; j++){
 			L_h[count++] = L_i[j];
 			L_h[count++] = i;
 			L_h[count++] = L_x[j];
 		}
 	}
+	L_h_nz = (count)/3;
 }
 
 void Algebra::trip_to_array(vector<trip_L>&L_trip, float *&L_h, size_t &L_h_nz){
@@ -139,6 +140,6 @@ void Algebra::CK_decomp(Matrix &A, cholmod_factor *&L, cholmod_common *cm, size_
 	//cholmod_print_common("cm", cm);
 	L->ordering = CHOLMOD_NATURAL;
 	cholmod_factorize(A_cholmod, L, cm);
-	cholmod_print_factor(L, "L", cm);
+	//cholmod_print_factor(L, "L", cm);
 	cholmod_free_sparse(&A_cholmod, cm);
 }

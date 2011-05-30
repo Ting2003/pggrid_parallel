@@ -187,13 +187,7 @@ void block_CK_host(BlockInfo &block_info){
 	int *L_n_d = NULL; size_t *base_n_d = NULL;
 	substitute_block_setup(block_info, L_d, b_x_d, L_nz_d, 
 		L_n_d, base_nz_d, base_n_d, total_n, total_nz);
-	//clog<<"total_n, total_nz: "<<total_n<<" "<<total_nz<<endl;
-	/*for(size_t i=0;i<1;i++){//block_info.size();i++){
-		clog<<L_nz_d[i]<<endl;
-		clog<<" "<<L_n_d[i]<<" "<<
-		base_nz_d[i]<<" "<<base_n_d[i]<<endl;
-	}*/
-
+	
 	// find max block size in block_info
 	int max_block_size = 0;
 	for(size_t i=0;i<block_info.size();i++)
@@ -225,12 +219,21 @@ void block_CK_host(BlockInfo &block_info){
 
 	// copy solution back from GPU into CPU
 	// where CPU will perform the find_diff and updaterhs()
-	//cutilSafeCall(cudaMemcpy(bp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
+	size_t base = 0;
+	for(size_t i=0;i<block_info.size();i++){
+		//clog<<"block index: "<<i<<endl;
+		cudaMemcpy(block_info[i].xp_f, 
+		&b_x_d[base], sizeof(float)*block_info[i].count, 
+		cudaMemcpyDeviceToHost);
+		base  += block_info[i].count;
+		//for(size_t j=0;j<block_info[i].count;j++)
+			//clog<<"solution x is: "<<j<<" "<<block_info[i].xp_f[j]<<endl;
+	}
 	//cutilSafeCall(cudaMemcpy(xp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
 	
 	cutilSafeCall(cudaUnbindTexture(L_tex));
-	//cutilSafeCall(cudaFree(L_d));
-	//cutilSafeCall(cudaFree(b_x_d));
+	cudaFree(L_d);
+	cudaFree(b_x_d);
 	
 	CUT_SAFE_CALL(cutStopTimer(timer));
 	cudaTime = cutGetTimerValue(timer);
@@ -266,7 +269,7 @@ void substitute_block_setup(BlockInfo &block_info, float *&L_d,
 		}
 		else{
 			base_nz_h[i] = base_nz_h[i-1] +
-				       block_info[i-1].L_h_nz;
+				       3*block_info[i-1].L_h_nz;
 			base_n_h[i] = base_n_h[i-1]+
 				       block_info[i-1].count;
 		} 
@@ -276,12 +279,6 @@ void substitute_block_setup(BlockInfo &block_info, float *&L_d,
 	total_nz = base_nz_h[block_info.size()-1] + 
 		  block_info[block_info.size()-1].L_h_nz;
 
-	clog<<"L_nz, L_n, base_nz, base_n: "<<endl;
-	for(size_t i=0;i<block_info.size();i++)
-		clog<<i<<" "<<L_nz_h[i]<<" "<<L_n_h[i]<<
-		" "<<base_nz_h[i]<<" "<<base_n_h[i]<<endl;
-	clog<<"total_n, total_nz: "<<total_n<<" "<<total_nz<<endl;
-	
 	// Allocate and copy L_nz_d, as well as L_n_d
 	size_t count = sizeof(int)*block_info.size();
 	cutilSafeCall(cudaMalloc((void**)&L_nz_d, count));
@@ -312,7 +309,7 @@ void substitute_block_setup(BlockInfo &block_info, float *&L_d,
 	for(size_t i=0;i<block_info.size();i++){
 		cutilSafeCall(cudaMemcpy(&L_d[base], block_info[i].L_h, 
 		sizeof(float)*3*block_info[i].L_h_nz, cudaMemcpyHostToDevice));
-		base += block_info[i].L_h_nz;
+		base += 3*block_info[i].L_h_nz;
 	}
 	cutilSafeCall(cudaBindTexture(0, L_tex, L_d, channelDesc, count));
 		
@@ -321,6 +318,9 @@ void substitute_block_setup(BlockInfo &block_info, float *&L_d,
 	cutilSafeCall(cudaMalloc((void**)&b_x_d, count));
 	base = 0;
 	for(size_t i=0;i<block_info.size();i++){
+		//clog<<"block id: "<<block_info[i].bid<<endl;
+		//for(size_t j=0;j<block_info[i].count;j++)
+			//clog<<j<<" "<<block_info[i].bnewp_f[j]<<endl;
 		cutilSafeCall(cudaMemcpy(&b_x_d[base], block_info[i].bnewp_f, 
 		sizeof(float)*block_info[i].count, cudaMemcpyHostToDevice));
 		base += block_info[i].count;

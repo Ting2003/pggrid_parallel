@@ -468,10 +468,12 @@ double Circuit::solve_iteration(){
 		// backup the old voltage value
 		//double *x_old;
 		x_old = new double [block.count];
+		//clog<<"block_id: "<<block.bid<<endl;
 		for(size_t k=0; k<block.count;k++){
 			x_old[k] = block.xp[k];
 			// assign bnewp_f to store float version
 			block.bnewp_f[k] = block.bnewp[k];
+			//clog<<k<<" "<<block.bnewp_f[k]<<endl;
 		}
 
 		// for each block, get the L_h and L_h_nz

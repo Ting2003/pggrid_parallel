@@ -16,17 +16,18 @@ __global__ void CK_block_kernel(float *L_d, float *b_x_d,
 
 	int block_id = blockIdx.y * gridDim.x + blockIdx.x;
 	
-	int i, j;
+	long i, j;
 	int iter = L_n_d[block_id] / blockDim.x ;
 	if(((L_n_d[block_id] % blockDim.x)!=0)) iter += 1;
-	int block_base = base_n_d[block_id];
+	size_t block_base_n = base_n_d[block_id];
+	size_t block_base_nz = base_nz_d[block_id];
 	for(i=0; i< iter; i++){
 		int thread_base = i * blockDim.x;
 		if((thread_base+tid) < L_n_d[block_id])
-			b_x_s[thread_base+tid+block_base] = b_x_d[block_base+tid+thread_base];
+			b_x_s[thread_base+tid] = b_x_d[thread_base+tid+block_base_n];
 	}
 	__syncthreads();
-	/*
+	
 	i = 0; j = 0;
 	int index_col = 0, index_row = 0;
 	size_t row_p;
@@ -35,40 +36,40 @@ __global__ void CK_block_kernel(float *L_d, float *b_x_d,
 	// from shared memory into global memory
 	if(tid < HALF_WARP){
 		// doing forward substitution
-		while(i < 3*L_h_nz){
-			row_p =L_d[i];
+		while(i < 3*L_nz_d[block_id]){
+			row_p =L_d[block_base_nz+i];
 		
 			// xj = bj / Ajj
-			index_row = L_d[i];
-			b_x_s[index_row] /= L_d[i+2];
+			index_row = L_d[block_base_nz+i];
+			b_x_s[index_row] /= L_d[block_base_nz+i+2];
 			
 			j = i+3;
-			if(j >= 3 * L_h_nz-2) break;
-			while(L_d[j] != L_d[j+1]){
+			if(j >= 3 * L_nz_d[block_id]-2) break;
+			while(L_d[block_base_nz+j] != L_d[block_base_nz+j+1]){
 				// bi = bi - Aij * xj
-				index_row = L_d[j];
-				index_col = L_d[j+1];
-				b_x_s[index_row] -= L_d[j+2]*b_x_s[index_col];
+				index_row = L_d[block_base_nz+j];
+				index_col = L_d[block_base_nz+j+1];
+				b_x_s[index_row] -= L_d[block_base_nz+j+2]*b_x_s[index_col];
 				j += 3;
 			}
 			i = j;
 		}
 			
 		// doing backward substitution
-		i = 3 * L_h_nz - 3;
+		i = 3 * L_nz_d[block_id] - 3;
 		while(i >= 0){
-			row_p = L_d[i];
+			row_p = L_d[block_base_nz+i];
 				
 			// xi = bi / Aij
-			b_x_s[row_p] /= L_d[i+2];
+			b_x_s[row_p] /= L_d[block_base_nz+i+2];
 
 			j = i-3;
 			if(j<0) break;
-			while(L_d[j]!=L_d[j+1]){
+			while(L_d[block_base_nz+j]!=L_d[block_base_nz+j+1]){
 				// bi = bi - Aij * xj
-				index_row = L_d[j];
-				index_col = L_d[j+1];
-				b_x_s[index_col] -= L_d[j+2] * b_x_s[index_row];
+				index_row = L_d[block_base_nz+j];
+				index_col = L_d[block_base_nz+j+1];
+				b_x_s[index_col] -= L_d[block_base_nz+j+2] * b_x_s[index_row];
 				j -= 3;
 			}
 			i = j;
@@ -76,8 +77,8 @@ __global__ void CK_block_kernel(float *L_d, float *b_x_d,
 	}
 	// after computing, copy back into global memory
 	for(i=0; i< iter; i++){
-		int base = i * blockDim.x;
-		if((base+tid) < n)
-			b_x_d[base+tid] = b_x_s[base+tid];
-	}*/
+		int thread_base = i * blockDim.x;
+		if((thread_base+tid) < L_n_d[block_id])
+			b_x_d[thread_base+tid+block_base_n] = b_x_s[tid+thread_base];
+	}
 }

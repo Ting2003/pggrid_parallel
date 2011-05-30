@@ -55,6 +55,9 @@ void Block::solve_CK(cholmod_common *cm){
 void Block::solve_CK_setup(cholmod_common *cm){
 	L_h_nz = 0;
 	Algebra::factor_to_triplet(L, L_h, L_h_nz);
+	clog<<"bid "<<bid<<endl;
+	for(size_t i=0;i<L_h_nz;i++)
+		clog<<L_h[3*i]<<" "<<L_h[3*i+1]<<" "<<L_h[3*i+2]<<endl;
 }
 
 void Block::allocate_resource(cholmod_common *cm){
