@@ -632,13 +632,13 @@ void Circuit::get_voltages_from_block_LU_sol(){
 		double v = block.xp_f[id];
 		//if(block.xp_f[id]==7.2) clog<<"node is: "<<*node<<endl;
 		node->value = v;
-		//if(node->name =="n3_20630_18471"){
-			//clog<<"block_id: "<<block_id<<endl;
-			//clog<<"id : "<<id<<endl;
+		if(node->name =="n3_7271_248"){
+			clog<<"block_id: "<<block_id<<endl;
+			clog<<"id : "<<id<<endl;
 			//if(node->rep->isX())
 				//clog<<*node->rep<<" "<<node->rep->value<<endl;
 			//clog<<"node->value: "<<node->value<<endl;
-		//}
+		}
 	}
 }
 

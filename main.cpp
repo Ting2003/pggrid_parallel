@@ -101,7 +101,7 @@ int main(int argc, char * argv[]){
 		//char ofname[MAX_BUF];
 		//sprintf(ofname,"%s.%s",filename,ckt->get_name().c_str());
 		//freopen(ofname,"w", stdout);
-		//cktlist[i]->print();
+		cktlist[i]->print();
 		//clog<<(*ckt)<<endl;
 		clog<<endl;
 		//}

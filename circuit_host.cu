@@ -233,13 +233,13 @@ void block_cuda_iteration(BlockInfo &block_info, float *&L_d,
 	// where CPU will perform the find_diff and updaterhs()
 	base = 0;
 	for(size_t i=0;i<block_info.size();i++){
-		cout<<"block index: "<<i<<endl;
+		//cout<<"block index: "<<i<<endl;
 		cudaMemcpy(block_info[i].xp_f, 
 		&b_x_d[base], sizeof(float)*block_info[i].count, 
 		cudaMemcpyDeviceToHost);
 		base  += block_info[i].count;
-		for(size_t j=0;j<block_info[i].count;j++)
-			cout<<j<<" "<<block_info[i].xp_f[j]<<endl;
+		//for(size_t j=0;j<block_info[i].count;j++)
+			//cout<<j<<" "<<block_info[i].xp_f[j]<<endl;
 	}	
 	
 	/*CUT_SAFE_CALL(cutStopTimer(timer));

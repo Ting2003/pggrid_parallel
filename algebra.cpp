@@ -55,7 +55,7 @@ void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz, 
 		}
 	}
 	L_h_nz = (count)/3;
-	cout<<"L_h_nz: "<<L_h_nz<<endl;
+	//cout<<"L_h_nz: "<<L_h_nz<<endl;
 }
 
 void Algebra::trip_to_array(vector<trip_L>&L_trip, float *&L_h, size_t &L_h_nz){
