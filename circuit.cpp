@@ -32,9 +32,9 @@
 using namespace std;
 
 double Circuit::EPSILON = 1e-5;
-size_t Circuit::MAX_BLOCK_NODES = 8;//5500;
+size_t Circuit::MAX_BLOCK_NODES = 2000;//5500;
 double Circuit::OMEGA = 1.2;
-double Circuit::OVERLAP_RATIO = 0.5;//0.2;
+double Circuit::OVERLAP_RATIO = 0.2;
 int    Circuit::MODE = 0;
 const int MAX_ITERATION = 1;//1000;
 const int SAMPLE_INTERVAL = 5;
