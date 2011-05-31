@@ -165,26 +165,23 @@ void substitute_setup(float *L_h, size_t L_h_nz, float *&L_d, float *bp, float *
 }
 
 // block version of substitution
-void block_CK_host(BlockInfo &block_info){
-	float *L_d ;
-	float *b_x_d ;
-		
+void block_cuda_setup(BlockInfo &block_info, float *&L_d, 
+	float *&b_x_d,size_t &total_n, size_t &total_nz,
+	int *&L_nz_d, size_t *&base_nz_d, int *&L_n_d, 
+	size_t *&base_n_d, size_t &sharedMemSize){
+
 	// dump cudaMalloc, as the first call wll cost about 1s
 	// which is much larger than usual 1e-6s
 	cudaMalloc((void**)&L_d, sizeof(float));
 	
-	unsigned int timer;
+	/*unsigned int timer;
 	float cudaTime;
 	CUT_SAFE_CALL(cutCreateTimer(&timer));
-	CUT_SAFE_CALL(cutStartTimer(timer));
+	CUT_SAFE_CALL(cutStartTimer(timer));*/
 	
 	// copy data from L to cudaArray L_d
 	// bind L_d into texture memory
 	// copy L_n_nz_h into constant memory in 1D array
-	size_t total_n = 0;
-	size_t total_nz = 0;
-	int *L_nz_d = NULL; size_t *base_nz_d = NULL;
-	int *L_n_d = NULL; size_t *base_n_d = NULL;
 	substitute_block_setup(block_info, L_d, b_x_d, L_nz_d, 
 		L_n_d, base_nz_d, base_n_d, total_n, total_nz);
 	
@@ -193,50 +190,70 @@ void block_CK_host(BlockInfo &block_info){
 	for(size_t i=0;i<block_info.size();i++)
 		if(block_info[i].count > max_block_size)
 			max_block_size = block_info[i].count;
+	sharedMemSize =sizeof(float) *max_block_size;
+	clog<<"shared mem size: "<<sharedMemSize<<endl;
+}
 
+void block_cuda_iteration(BlockInfo &block_info, float *&L_d, 
+	float *&b_x_d, size_t &total_n, size_t &total_nz,
+	int *&L_nz_d, size_t *&base_nz_d, int *&L_n_d, 
+	size_t *&base_n_d, size_t &sharedMemSize){
+	
+	// configurate kernel info
+	clog<<block_info.X_BLOCKS<<" "<<block_info.Y_BLOCKS<<endl;
 	dim3 dimGrid(block_info.X_BLOCKS, block_info.Y_BLOCKS);
 	dim3 dimBlock(256, 1, 1);
 	
-	// calculate the shared memory size
-	// note: shared memory is in unit size, max
-	int sharedMemSize =sizeof(float) *max_block_size;
-	clog<<"shared mem size: "<<sharedMemSize<<endl;
-	// perform for- and back-ward substitution for each block
-	// solution will be written from shared memory into global memory
-	unsigned int timer_compute;
+	// copy b_x_d
+	size_t base = 0;
+	for(size_t i=0;i<block_info.size();i++){
+		//clog<<"block id: "<<block_info[i].bid<<endl;
+		//for(size_t j=0;j<block_info[i].count;j++)
+			//clog<<j<<" "<<block_info[i].bnewp_f[j]<<endl;
+		cutilSafeCall(cudaMemcpy(&b_x_d[base], block_info[i].bnewp_f, 
+		sizeof(float)*block_info[i].count, cudaMemcpyHostToDevice));
+		base += block_info[i].count;
+	}
+
+	/*unsigned int timer_compute;
 	float cudaTime_compute;
 	CUT_SAFE_CALL(cutCreateTimer(&timer_compute));
-	CUT_SAFE_CALL(cutStartTimer(timer_compute));
+	CUT_SAFE_CALL(cutStartTimer(timer_compute));*/
 	
 	CK_block_kernel<<<dimGrid, dimBlock, sharedMemSize>>>
-		(L_d, b_x_d, L_nz_d, L_n_d, base_nz_d, base_n_d, max_block_size);
+		(L_d, b_x_d, L_nz_d, L_n_d, base_nz_d, base_n_d);
 	
 	cutilCheckMsg("Kernel execution failed.");
-	CUT_SAFE_CALL(cutStopTimer(timer_compute));
+	/*CUT_SAFE_CALL(cutStopTimer(timer_compute));
 	cudaTime_compute = cutGetTimerValue(timer_compute);
 	clog<<"kernel time: "<<cudaTime_compute/1000<<" (s) "<<endl;
-	CUT_SAFE_CALL(cutDeleteTimer(timer_compute));	
+	CUT_SAFE_CALL(cutDeleteTimer(timer_compute));*/
 
 	// copy solution back from GPU into CPU
 	// where CPU will perform the find_diff and updaterhs()
-	size_t base = 0;
+	base = 0;
 	for(size_t i=0;i<block_info.size();i++){
-		//clog<<"block index: "<<i<<endl;
+		cout<<"block index: "<<i<<endl;
 		cudaMemcpy(block_info[i].xp_f, 
 		&b_x_d[base], sizeof(float)*block_info[i].count, 
 		cudaMemcpyDeviceToHost);
 		base  += block_info[i].count;
-	}
-	//cutilSafeCall(cudaMemcpy(xp, b_x_d, sizeof(float)*n, cudaMemcpyDeviceToHost));
+		for(size_t j=0;j<block_info[i].count;j++)
+			cout<<j<<" "<<block_info[i].xp_f[j]<<endl;
+	}	
 	
-	cutilSafeCall(cudaUnbindTexture(L_tex));
-	cudaFree(L_d);
-	cudaFree(b_x_d);
-	
-	CUT_SAFE_CALL(cutStopTimer(timer));
+	/*CUT_SAFE_CALL(cutStopTimer(timer));
 	cudaTime = cutGetTimerValue(timer);
 	clog<<"gpu time: "<<cudaTime/1000<<" (s) "<<endl;
-	CUT_SAFE_CALL(cutDeleteTimer(timer));
+	CUT_SAFE_CALL(cutDeleteTimer(timer));*/
+}
+
+void block_cuda_free(float *&L_d, float *&b_x_d, int *&L_nz_d, 
+	size_t *&base_nz_d, int *&L_n_d, size_t *&base_n_d){
+	cutilSafeCall(cudaUnbindTexture(L_tex));
+	cudaFree(L_d); cudaFree(b_x_d);
+	cudaFree(L_nz_d); cudaFree(base_nz_d);
+	cudaFree(L_n_d); cudaFree(base_n_d);
 }
 
 // copy data from host to device side
@@ -314,13 +331,4 @@ void substitute_block_setup(BlockInfo &block_info, float *&L_d,
 	// malloc b and x into a 1d array, copy from host to device
 	count = sizeof(float) * total_n;
 	cutilSafeCall(cudaMalloc((void**)&b_x_d, count));
-	base = 0;
-	for(size_t i=0;i<block_info.size();i++){
-		//clog<<"block id: "<<block_info[i].bid<<endl;
-		//for(size_t j=0;j<block_info[i].count;j++)
-			//clog<<j<<" "<<block_info[i].bnewp_f[j]<<endl;
-		cutilSafeCall(cudaMemcpy(&b_x_d[base], block_info[i].bnewp_f, 
-		sizeof(float)*block_info[i].count, cudaMemcpyHostToDevice));
-		base += block_info[i].count;
-	}
 }

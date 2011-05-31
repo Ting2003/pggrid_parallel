@@ -9,7 +9,7 @@
 // base_nz_d, base_n_d: nz base and n base for each block
 __global__ void CK_block_kernel(float *L_d, float *b_x_d, 
 		int * L_nz_d, int *L_n_d, size_t *base_nz_d, 
-		size_t *base_n_d, int max_block_size){
+		size_t *base_n_d){
 	int tid = threadIdx.x;
 	// load 1 block data into shared memory
 	extern __shared__ float b_x_s[];

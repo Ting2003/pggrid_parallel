@@ -32,9 +32,9 @@
 using namespace std;
 
 double Circuit::EPSILON = 1e-5;
-size_t Circuit::MAX_BLOCK_NODES = 8;//5500;
+size_t Circuit::MAX_BLOCK_NODES = 2000;//5500;
 double Circuit::OMEGA = 1.2;
-double Circuit::OVERLAP_RATIO = 0.5;//0.2;
+double Circuit::OVERLAP_RATIO = 0.2;
 int    Circuit::MODE = 0;
 const int MAX_ITERATION = 1;//1000;
 const int SAMPLE_INTERVAL = 5;
@@ -191,14 +191,14 @@ void Circuit::solve_init(){
 			assert( net->ab[1] != p );
 			p->rep = net->ab[1]->rep;
 		} // else the representative is itself
-
+		
 		// push the representatives into list
 		if( p->rep == p ) {
 			replist.push_back(p);
 			p->rid = nr++;
 		}
 	}// end of for i
-
+	
 	size_t n_merge = mergelist.size();
 	size_t n_nodes = nodelist.size();
 	size_t n_reps  = replist.size();
@@ -337,6 +337,8 @@ void Circuit::stamp_block_matrix(){
 		if(block_info[i].count>0){
 			A[i].set_row(block_info[i].count);
 			block_info[i].CK_decomp(A[i], cm, peak_mem, CK_mem);
+			// for each block, get the L_h and L_h_nz
+			block_info[i].solve_CK_setup(cm);
 		}
 	}
 	
@@ -404,6 +406,17 @@ bool Circuit::solve_IT(){
 	cm->print = 5;
 	cm->final_ll = true; //stay in LL' format
 	block_init();
+	//return 0;
+	
+	// variables for cuda
+	float *L_d ; float *b_x_d ;
+	size_t total_n = 0; size_t total_nz = 0;
+	int *L_nz_d = NULL; size_t *base_nz_d = NULL;
+	int *L_n_d = NULL;  size_t *base_n_d = NULL;
+	size_t sharedMemSize=0;
+
+	block_cuda_setup(block_info, L_d, b_x_d, total_n, total_nz, 
+		L_nz_d, base_nz_d, L_n_d, base_n_d, sharedMemSize);
 
 	clog<<"e="<<EPSILON
 	    <<"\to="<<OMEGA
@@ -415,18 +428,24 @@ bool Circuit::solve_IT(){
 	double diff=0;
 	bool successful = false;
 
-	while( iter++ < MAX_ITERATION ){
-		diff = solve_iteration();
+	while( iter < MAX_ITERATION ){
+		diff = solve_iteration(L_d, b_x_d, total_n, total_nz,
+			L_nz_d, base_nz_d, L_n_d, base_n_d, 
+			sharedMemSize);
 
-		//clog<<"iter, diff: "<<iter<<" "<<diff<<endl;
+		clog<<"iter, diff: "<<iter<<" "<<diff<<endl;
 		if( diff < EPSILON ){
 			successful = true;
 			break;
 		}
+		iter++;
 	}
 	clog<<"# iter: "<<iter<<endl;
 	get_voltages_from_block_LU_sol();
 	get_vol_mergelist();
+
+	block_cuda_free(L_d, b_x_d, L_nz_d, base_nz_d, L_n_d, 
+			base_n_d);
 	//clog<<"before free. "<<endl;
 	for(size_t i=0;i<block_info.size();i++){
 		if(block_info[i].count > 0){
@@ -440,10 +459,6 @@ bool Circuit::solve_IT(){
 	
 	cholmod_finish(cm);
 	return successful;
-}
-
-void Circuit::solve_CK_block(){
-	block_CK_host(block_info);	
 }
 
 // TODO: add comment
@@ -463,7 +478,10 @@ void Circuit::node_voltage_init(){
 // 2. solve the matrix
 // 3. update node voltages
 // 4. track the maximum error of solution
-double Circuit::solve_iteration(){	
+double Circuit::solve_iteration(float *&L_d, 
+	float *&b_x_d, size_t &total_n, size_t &total_nz,
+	int *&L_nz_d, size_t *&base_nz_d, int *&L_n_d, 
+	size_t *&base_n_d, size_t &sharedMemSize){	
 	double diff = .0, max_diff = .0;
 	for(size_t i=0;i<block_info.size();i++){
 		Block &block = block_info[i];
@@ -473,19 +491,15 @@ double Circuit::solve_iteration(){
 
 		// backup the old voltage value
 		//double *x_old;
-		//clog<<"block_id: "<<block.bid<<endl;
 		for(size_t k=0; k<block.count;k++){
 			block.x_old[k] = block.xp_f[k];
 			// assign bnewp_f to store float version
 			block.bnewp_f[k] = block.bnewp[k];
-			//clog<<k<<" "<<block.bnewp_f[k]<<endl;
 		}
 
-		// for each block, get the L_h and L_h_nz
-		block.solve_CK_setup(cm);
 	}
 	// function in circuit, doing CK solve in parallel
-	solve_CK_block();
+	block_cuda_iteration(block_info, L_d, b_x_d, total_n, total_nz, L_nz_d, base_nz_d, L_n_d, base_n_d, sharedMemSize);
 
 	for(size_t i=0;i<block_info.size();i++){
 		Block & block = block_info[i];
@@ -616,7 +630,15 @@ void Circuit::get_voltages_from_block_LU_sol(){
 		//Vec &p = block.x;
 		//double v = p[id];		// get its rep's value
 		double v = block.xp_f[id];
+		//if(block.xp_f[id]==7.2) clog<<"node is: "<<*node<<endl;
 		node->value = v;
+		//if(node->name =="n3_20630_18471"){
+			//clog<<"block_id: "<<block_id<<endl;
+			//clog<<"id : "<<id<<endl;
+			//if(node->rep->isX())
+				//clog<<*node->rep<<" "<<node->rep->value<<endl;
+			//clog<<"node->value: "<<node->value<<endl;
+		//}
 	}
 }
 

@@ -30,6 +30,7 @@
 #include "block.h"
 #include "trip_L.h"
 
+#include "cuda.h"
 #include "circuit_host.h"
 
 using namespace std;
@@ -112,7 +113,10 @@ private:
 	void solve_init();
 
 	// updates nodes value in each iteration
-	double solve_iteration();
+	double solve_iteration(float *&L_d, 
+	float *&b_x_d, size_t &total_n, size_t &total_nz,
+	int *&L_nz_d, size_t *&base_nz_d, int *&L_n_d, 
+	size_t *&base_n_d, size_t &sharedMemSize);
 	void block_init();
 	void update_block_geometry();
 

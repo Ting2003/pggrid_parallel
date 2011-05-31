@@ -28,15 +28,17 @@ bool Algebra::compare_row_first(const trip_L &a, const trip_L &b){
 
 // transform factor matrix from column to triplet
 // output is column-wise triplet expression of L
-void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz){
+void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz, cholmod_common *cm){
 	int *L_nz, *L_p, *L_i;
 	double *L_x;
 	L_nz = static_cast<int *> (L->nz);
 	L_p = static_cast<int *> (L->p);
 	L_i = static_cast<int *> (L->i);
 	L_x = static_cast<double *> (L->x);	
-	
+
+	//cholmod_print_factor(L, "L_new", cm);	
 	size_t n = L->n;
+	//cout<<"L->nzmax: "<<L->nzmax<<endl;
 	L_h = new float [3 *L->nzmax];
 	size_t count = 0; // index for L_h
 	size_t base = 0;
@@ -44,11 +46,16 @@ void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz){
 		//L_h_nz += L_nz[i];
 		for(int j=L_p[i]; j< L_nz[i]+L_p[i]; j++){
 			L_h[count++] = L_i[j];
+			//cout<<L_h[count-1]<<" ";
 			L_h[count++] = i;
+			//cout<<L_h[count-1]<<" ";
 			L_h[count++] = L_x[j];
+			//cout<<L_h[count-1]<<endl;
+
 		}
 	}
 	L_h_nz = (count)/3;
+	cout<<"L_h_nz: "<<L_h_nz<<endl;
 }
 
 void Algebra::trip_to_array(vector<trip_L>&L_trip, float *&L_h, size_t &L_h_nz){
@@ -82,7 +89,7 @@ void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_
 	float * L_h = NULL;
 	// record the length of L_h
 	size_t L_h_nz = 0;
-	factor_to_triplet(L, L_h, L_h_nz);
+	factor_to_triplet(L, L_h, L_h_nz, cm);
 
 	/*FILE *fp;
 	fp = fopen("L.dat", "w");
