@@ -94,7 +94,6 @@ int main(int argc, char * argv[]){
 	//{
 	for(size_t i=0;i<cktlist.size();i++){
 		Circuit * ckt = cktlist[i];
-		//if(ckt->get_name() == "VDD"){
 		clog<<"Solving "<<ckt->get_name()<<endl;
 		ckt->solve();
 		// DEBUG: output each circuit to separate file
@@ -104,7 +103,7 @@ int main(int argc, char * argv[]){
 		cktlist[i]->print();
 		//clog<<(*ckt)<<endl;
 		clog<<endl;
-		//}
+		
 		// after that, this circuit can be released
 		delete ckt;
 	}

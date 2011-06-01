@@ -484,6 +484,7 @@ double Circuit::solve_iteration(){
 		// for each block, get the L_h and L_h_nz
 		block.solve_CK_setup(cm);
 	}
+	
 	// function in circuit, doing CK solve in parallel
 	solve_CK_block();
 
@@ -616,7 +617,7 @@ void Circuit::get_voltages_from_block_LU_sol(){
 		//Vec &p = block.x;
 		//double v = p[id];		// get its rep's value
 		double v = block.xp_f[id];
-		node->value = v;
+		node->value = v;	
 	}
 }
 

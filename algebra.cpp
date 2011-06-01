@@ -44,8 +44,11 @@ void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz){
 		//L_h_nz += L_nz[i];
 		for(int j=L_p[i]; j< L_nz[i]+L_p[i]; j++){
 			L_h[count++] = L_i[j];
+			//cout<<L_h[count-1]<<" ";
 			L_h[count++] = i;
+			//cout<<L_h[count-1]<<" ";
 			L_h[count++] = L_x[j];
+			//cout<<L_h[count-1]<<endl;
 		}
 	}
 	L_h_nz = (count)/3;

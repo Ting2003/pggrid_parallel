@@ -11,6 +11,7 @@
 #include "global.h"
 #include <iostream>
 #include <fstream>
+#include <string>
 using namespace std;
 
 texture <float, 1, cudaReadModeElementType> L_tex;
@@ -193,6 +194,21 @@ void block_CK_host(BlockInfo &block_info){
 	for(size_t i=0;i<block_info.size();i++)
 		if(block_info[i].count > max_block_size)
 			max_block_size = block_info[i].count;
+	{
+		fstream fout;
+		fout.open("block_0_A.dat");
+		for(size_t j=0;j<block_info[0].L_h_nz;j++){
+			fout<<block_info[0].L_h[3*j]+1<<" "<<
+			block_info[0].L_h[3*j+1]+1<<" "<<
+			block_info[0].L_h[3*j+2]<<endl;
+		}
+		fout.close();
+		fout.open("block_0_b.dat");
+		for(size_t j=0;j<block_info[0].count;j++){
+			fout<<block_info[0].bnewp_f[j]<<endl;
+		}
+		fout.close();
+	}
 
 	dim3 dimGrid(block_info.X_BLOCKS, block_info.Y_BLOCKS);
 	dim3 dimBlock(256, 1, 1);
@@ -221,7 +237,6 @@ void block_CK_host(BlockInfo &block_info){
 	// where CPU will perform the find_diff and updaterhs()
 	size_t base = 0;
 	for(size_t i=0;i<block_info.size();i++){
-		//clog<<"block index: "<<i<<endl;
 		cudaMemcpy(block_info[i].xp_f, 
 		&b_x_d[base], sizeof(float)*block_info[i].count, 
 		cudaMemcpyDeviceToHost);
