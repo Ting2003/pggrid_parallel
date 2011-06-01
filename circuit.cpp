@@ -36,7 +36,7 @@ size_t Circuit::MAX_BLOCK_NODES = 2000;//5500;
 double Circuit::OMEGA = 1.2;
 double Circuit::OVERLAP_RATIO = 0.2;
 int    Circuit::MODE = 0;
-const int MAX_ITERATION = 1;//1000;
+const int MAX_ITERATION = 100;//1000;
 const int SAMPLE_INTERVAL = 5;
 const size_t SAMPLE_NUM_NODE = 10;
 const double MERGE_RATIO = 0.3;
@@ -632,13 +632,6 @@ void Circuit::get_voltages_from_block_LU_sol(){
 		double v = block.xp_f[id];
 		//if(block.xp_f[id]==7.2) clog<<"node is: "<<*node<<endl;
 		node->value = v;
-		if(node->name =="n3_7271_248"){
-			clog<<"block_id: "<<block_id<<endl;
-			clog<<"id : "<<id<<endl;
-			//if(node->rep->isX())
-				//clog<<*node->rep<<" "<<node->rep->value<<endl;
-			//clog<<"node->value: "<<node->value<<endl;
-		}
 	}
 }
 

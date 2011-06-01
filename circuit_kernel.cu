@@ -75,6 +75,8 @@ __global__ void CK_block_kernel(float *L_d, float *b_x_d,
 			i = j;
 		}
 	}
+	__syncthreads();
+
 	// after computing, copy back into global memory
 	for(i=0; i< iter; i++){
 		int thread_base = i * blockDim.x;

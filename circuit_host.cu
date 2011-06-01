@@ -6,7 +6,7 @@
 #include <cuda.h>
 #include <math.h>
 #include "circuit_host.h"
-#include <circuit_kernel.h>
+//#include <circuit_kernel.h>
 #include "block.h"
 #include "global.h"
 #include <iostream>
@@ -16,6 +16,81 @@ using namespace std;
 texture <float, 1, cudaReadModeElementType> L_tex;
 cudaChannelFormatDesc channelDesc = 
 		cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
+
+__global__ void CK_block_kernel(float *L_d, float *b_x_d, 
+		int * L_nz_d, int *L_n_d, size_t *base_nz_d, 
+		size_t *base_n_d){
+	int tid = threadIdx.x;
+	// load 1 block data into shared memory
+	extern __shared__ float b_x_s[];
+
+	int block_id = blockIdx.y * gridDim.x + blockIdx.x;
+	
+	long i, j;
+	int iter = L_n_d[block_id] / blockDim.x ;
+	if(((L_n_d[block_id] % blockDim.x)!=0)) iter += 1;
+	size_t block_base_n = base_n_d[block_id];
+	size_t block_base_nz = base_nz_d[block_id];
+	for(i=0; i< iter; i++){
+		int thread_base = i * blockDim.x;
+		if((thread_base+tid) < L_n_d[block_id])
+			b_x_s[thread_base+tid] = b_x_d[thread_base+tid+block_base_n];
+	}
+	__syncthreads();
+	
+	i = 0; j = 0;
+	int index_col = 0, index_row = 0;
+	// tid < WARPSIZE will do substitution
+	// then all threads will copy the solution 
+	// from shared memory into global memory
+	if(tid < HALF_WARP){
+		// doing forward substitution
+		while(i < 3*L_nz_d[block_id]){
+			// xj = bj / Ajj
+			index_row =tex1Dfetch(L_tex, block_base_nz+i);
+			b_x_s[index_row] /= tex1Dfetch(L_tex, block_base_nz+i+2);
+			
+			j = i+3;
+			if(j >= 3 * L_nz_d[block_id]-2) break;
+			while(tex1Dfetch(L_tex, block_base_nz+j) != tex1Dfetch(L_tex, block_base_nz+j+1)){
+				// bi = bi - Aij * xj
+				index_row = tex1Dfetch(L_tex, block_base_nz+j);
+				index_col = tex1Dfetch(L_tex, block_base_nz+j+1);
+				b_x_s[index_row] -= tex1Dfetch(L_tex, block_base_nz+j+2)* b_x_s[index_col];
+				j += 3;
+			}
+			i = j;
+		}
+			
+		// doing backward substitution
+		i = 3 * L_nz_d[block_id] - 3;
+		while(i >= 0){
+			// xi = bi / Aij
+			index_row = tex1Dfetch(L_tex, block_base_nz+i);
+			b_x_s[index_row] /= tex1Dfetch(L_tex, block_base_nz+i+2);
+
+			j = i-3;
+			if(j<0) break;
+			while(tex1Dfetch(L_tex, block_base_nz+j) !=
+			tex1Dfetch(L_tex, block_base_nz+j+1)){
+				// bi = bi - Aij * xj
+				index_row = tex1Dfetch(L_tex, block_base_nz+j);
+				index_col = tex1Dfetch(L_tex, block_base_nz+j+1);
+				b_x_s[index_col] -= tex1Dfetch(L_tex, block_base_nz+j+2)*b_x_s[index_row];
+				j -= 3;
+			}
+			i = j;
+		}
+	}
+	__syncthreads();
+
+	// after computing, copy back into global memory
+	for(i=0; i< iter; i++){
+		int thread_base = i * blockDim.x;
+		if((thread_base+tid) < L_n_d[block_id])
+			b_x_d[thread_base+tid+block_base_n] = b_x_s[tid+thread_base];
+	}
+}
 
 // kernel function, doing forward and backward substitution
 // data stored in L_d: row, col, and val
@@ -200,16 +275,12 @@ void block_cuda_iteration(BlockInfo &block_info, float *&L_d,
 	size_t *&base_n_d, size_t &sharedMemSize){
 	
 	// configurate kernel info
-	clog<<block_info.X_BLOCKS<<" "<<block_info.Y_BLOCKS<<endl;
 	dim3 dimGrid(block_info.X_BLOCKS, block_info.Y_BLOCKS);
 	dim3 dimBlock(256, 1, 1);
 	
 	// copy b_x_d
 	size_t base = 0;
 	for(size_t i=0;i<block_info.size();i++){
-		//clog<<"block id: "<<block_info[i].bid<<endl;
-		//for(size_t j=0;j<block_info[i].count;j++)
-			//clog<<j<<" "<<block_info[i].bnewp_f[j]<<endl;
 		cutilSafeCall(cudaMemcpy(&b_x_d[base], block_info[i].bnewp_f, 
 		sizeof(float)*block_info[i].count, cudaMemcpyHostToDevice));
 		base += block_info[i].count;
