@@ -143,7 +143,7 @@ private:
 	void copy_node_voltages_block(bool from=true);
 
 	// after solving, copy node voltage from replist to nodes
-	void get_voltages_from_LU_sol(float* x);
+	void get_voltages_from_LU_sol(double* x);
 	void get_voltages_from_block_LU_sol();
 	void get_vol_mergelist();
 

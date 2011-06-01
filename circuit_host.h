@@ -4,12 +4,6 @@
 #include "cholmod.h"
 #include "block.h"
 
-extern "C"
-void substitute_CK_host(float *L_h, size_t L_h_nz, float*bp, float *xp, size_t n);
-
-extern "C"
-void substitute_setup(float *L_h, size_t L_h_nz, float *&L_d, float *b, float *x, float *&b_x_d, size_t n);
-
 // block version function
 extern "C"
 void block_cuda_setup(BlockInfo &block_info, float *&L_d, 

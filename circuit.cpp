@@ -32,7 +32,7 @@
 using namespace std;
 
 double Circuit::EPSILON = 1e-5;
-size_t Circuit::MAX_BLOCK_NODES = 2000;//5500;
+size_t Circuit::MAX_BLOCK_NODES = 3000;//5500;
 double Circuit::OMEGA = 1.2;
 double Circuit::OVERLAP_RATIO = 0.2;
 int    Circuit::MODE = 0;
@@ -536,29 +536,17 @@ void Circuit::solve_LU_core(){
 	b = cholmod_zeros(n, 1, CHOLMOD_REAL, cm);
 	x = cholmod_zeros(n, 1, CHOLMOD_REAL, cm);
 	double *bp, *xp;
-	float *bp_f, *xp_f;
-	bp_f=  new float [replist.size()];
-	xp_f = new float [replist.size()];
 	bp = static_cast<double *> (b->x);
 	Matrix A;
 	stamp_by_set(A, bp);
 	make_A_symmetric(A, bp);
 	A.set_row(replist.size());
 
-	// set a float array to copy b value
-	// so that cholmod_dense b would not be affected
-	for(size_t i=0;i<replist.size();i++)
-		bp_f[i] = bp[i];
-
-	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem, bp_f, xp_f);
-	//xp = static_cast<double *> (x->x);
-	//for(size_t i=0;i<replist.size();i++)
-	//	xp_f[i] = xp[i];
-	
+	Algebra::solve_CK(A, x, b, cm, peak_mem, CK_mem);
+	xp = static_cast<double *> (x->x);	
 	// Vec b contains result, copy it back to nodelist
-	get_voltages_from_LU_sol(xp_f);
+	get_voltages_from_LU_sol(xp);
 	get_vol_mergelist();
-	free(bp_f); free(xp_f);
 	cholmod_free_dense(&x, cm);
 	cholmod_free_dense(&b, cm);
 	cholmod_finish(&c);
@@ -572,11 +560,11 @@ void Circuit::solve_LU(){
 
 // given vector x that obtained from LU, set the value to the corresponding
 // node in nodelist
-void Circuit::get_voltages_from_LU_sol(float * x){
+void Circuit::get_voltages_from_LU_sol(double * x){
 	for(size_t i=0;i<nodelist.size()-1;i++){
 		Node * node = nodelist[i];
 		size_t id = node->rep->rid;	// get rep's id in Vec
-		float v = x[id];		// get its rep's value
+		double v = x[id];		// get its rep's value
 		node->value = v;
 	}
 }

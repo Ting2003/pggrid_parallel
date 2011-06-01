@@ -35,10 +35,7 @@ void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz, 
 	L_p = static_cast<int *> (L->p);
 	L_i = static_cast<int *> (L->i);
 	L_x = static_cast<double *> (L->x);	
-
-	//cholmod_print_factor(L, "L_new", cm);	
 	size_t n = L->n;
-	//cout<<"L->nzmax: "<<L->nzmax<<endl;
 	L_h = new float [3 *L->nzmax];
 	size_t count = 0; // index for L_h
 	size_t base = 0;
@@ -46,67 +43,25 @@ void Algebra::factor_to_triplet(cholmod_factor *L, float *&L_h, size_t &L_h_nz, 
 		//L_h_nz += L_nz[i];
 		for(int j=L_p[i]; j< L_nz[i]+L_p[i]; j++){
 			L_h[count++] = L_i[j];
-			//cout<<L_h[count-1]<<" ";
 			L_h[count++] = i;
-			//cout<<L_h[count-1]<<" ";
 			L_h[count++] = L_x[j];
-			//cout<<L_h[count-1]<<endl;
-
 		}
 	}
 	L_h_nz = (count)/3;
-	//cout<<"L_h_nz: "<<L_h_nz<<endl;
-}
-
-void Algebra::trip_to_array(vector<trip_L>&L_trip, float *&L_h, size_t &L_h_nz){
-	L_h = new float[3 * L_trip.size()];
-	for(size_t i=0; i<L_trip.size();i++){
-		L_h[3*i] = L_trip[i].row;
-		L_h[3*i+1] = L_trip[i].col;
-		L_h[3*i+2] = L_trip[i].val;
-	}
-	// L_h_nz is the length of L_h
-	L_h_nz = L_trip.size();
-	L_trip.clear();
 }
 
 // deliver the address of x
 void Algebra::solve_CK(Matrix & A, cholmod_dense *&x, cholmod_dense *b, cholmod_common *cm, 
-			size_t &peak_mem, size_t &CK_mem, float *bp, float *xp){
+			size_t &peak_mem, size_t &CK_mem){
 	cholmod_factor *L;
-	//cm->nmethods = 5; // natural ordering
 	cm->final_ll = true; //stay in LL' format
 	CK_decomp(A, L, cm, peak_mem, CK_mem);
-	cholmod_print_factor(L,"L", cm);	
+	//cholmod_print_factor(L,"L", cm);	
 	// then solve
-	clock_t t1, t2;
-	t1 = clock();
-	//x = cholmod_solve(CHOLMOD_A, L, b, cm);
-	t2 = clock();
-	clog<<"CPU_solve: "<<1.0 *(t2 - t1) /CLOCKS_PER_SEC<<endl;
-
-	// L_h is the memory used for host memory, in array format
-	float * L_h = NULL;
-	// record the length of L_h
-	size_t L_h_nz = 0;
-	factor_to_triplet(L, L_h, L_h_nz, cm);
-
-	/*FILE *fp;
-	fp = fopen("L.dat", "w");
-	for(size_t i=0;i<L_h_nz;i++)
-		fprintf(fp, "%f %f %f\n", L_h[3*i]+1, L_h[3*i+1]+1, L_h[3*i+2]);
-	fclose(fp);
-	fp = fopen("B.dat", "w");
-	for(size_t i=0;i<b->nrow;i++)
-		fprintf(fp, "%f\n", bp[i]);
-	fclose(fp);
-	*/
-	// solve in GPU
-	//substitute_CK_host(L_h, L_h_nz, bp, xp, b->nrow);
+	x = cholmod_solve(CHOLMOD_A, L, b, cm);
 	
 	// L_h is the memory used for host memory, in array format
 	cholmod_free_factor(&L, cm);
-	free(L_h);
 }
 
 // doing cholesky decomposition
